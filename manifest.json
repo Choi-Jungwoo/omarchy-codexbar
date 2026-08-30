@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "community.codexbar",
+  "name": "CodexBar",
+  "version": "0.1.0",
+  "author": "Jungwoo",
+  "license": "MIT",
+  "description": "Provider usage ranked by the quota window most likely to stop your next prompt.",
+  "kinds": ["bar-widget"],
+  "activation": "on-demand",
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "CodexBar",
+    "description": "Open a constraint-first overview of every provider returned by codexbar serve.",
+    "category": "AI",
+    "aliases": ["codexbar", "usage", "limits"],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "serverPort": 8080,
+      "refreshIntervalSec": 60,
+      "serviceRefreshIntervalSec": 300,
+      "requestTimeoutSec": 8
+    },
+    "schema": [
+      { "key": "serverPort", "type": "integer", "label": "CodexBar server port", "min": 1, "max": 65535, "step": 1, "defaultValue": 8080, "description": "Uses an existing local codexbar serve instance on this port, or starts one when unavailable." },
+      { "key": "refreshIntervalSec", "type": "integer", "label": "Panel refresh interval (seconds)", "min": 30, "max": 3600, "step": 30, "defaultValue": 60 },
+      { "key": "serviceRefreshIntervalSec", "type": "integer", "label": "Provider refresh interval (seconds)", "min": 30, "max": 3600, "step": 30, "defaultValue": 300 },
+      { "key": "requestTimeoutSec", "type": "integer", "label": "Request timeout (seconds)", "min": 2, "max": 60, "step": 1, "defaultValue": 8 }
+    ]
+  }
+}

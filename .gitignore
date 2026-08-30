@@ -1,0 +1,22 @@
+# Local design and review artifacts
+.impeccable/
+
+# QML tooling caches
+.qmlcache/
+.qmlls.ini
+*.qmlc
+*.jsc
+
+# Build output
+build/
+cmake-build-*/
+
+# Local editor and OS metadata
+.idea/
+.vscode/
+.DS_Store
+
+# Local environment files
+.env
+.env.*
+!.env.example

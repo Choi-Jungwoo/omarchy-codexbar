@@ -27,6 +27,20 @@
 
 ## 安装
 
+先通过 AUR 安装 [CodexBar CLI](https://aur.archlinux.org/packages/codexbar-cli)：
+
+```bash
+yay -S codexbar-cli
+```
+
+确认 `codexbar` 已位于 `PATH`：
+
+```bash
+codexbar --version
+```
+
+然后安装并启用插件：
+
 ```bash
 omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable --yes
 ```

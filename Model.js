@@ -326,6 +326,46 @@ function formatPercent(value) {
   return number === null ? "—" : Math.round(number) + "%"
 }
 
+function quotaHealth(remainingPercent) {
+  var remaining = clampPercent(remainingPercent)
+  if (remaining === null) return null
+  if (remaining <= 10) return 0
+  return Math.min(1, (remaining - 10) / 90)
+}
+
+function resetCloseness(window, nowMs) {
+  if (!window) return null
+  var resetAt = nonEmpty(window.resetsAt)
+  if (resetAt === "") return null
+  var timestamp = new Date(resetAt).getTime()
+  if (!isFinite(timestamp)) return null
+
+  var current = numberOrNull(nowMs)
+  if (current === null) current = Date.now()
+  var remainingMs = Math.max(0, timestamp - current)
+  var horizonMs = 7 * 24 * 60 * 60000
+  return 1 - Math.min(1, remainingMs / horizonMs)
+}
+
+function resetCreditHealth(availableCount) {
+  var count = numberOrNull(availableCount)
+  if (count === null) return null
+  return Math.max(0, Math.min(1, count / 2))
+}
+
+function expiryHealth(value, nowMs) {
+  var text = nonEmpty(value)
+  if (text === "") return null
+  var timestamp = new Date(text).getTime()
+  if (!isFinite(timestamp)) return null
+
+  var current = numberOrNull(nowMs)
+  if (current === null) current = Date.now()
+  var remainingMs = Math.max(0, timestamp - current)
+  var horizonMs = 30 * 24 * 60 * 60000
+  return Math.min(1, remainingMs / horizonMs)
+}
+
 function formatDuration(milliseconds) {
   if (!(milliseconds > 0)) return "now"
   var minutes = Math.max(1, Math.floor(milliseconds / 60000))

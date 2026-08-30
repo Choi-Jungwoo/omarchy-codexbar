@@ -66,6 +66,36 @@ Panel {
     return Qt.rgba(color.r, color.g, color.b, opacity)
   }
 
+  function mixColor(from, to, amount) {
+    var position = clamp(amount, 0, 1)
+    return Qt.rgba(
+      from.r + (to.r - from.r) * position,
+      from.g + (to.g - from.g) * position,
+      from.b + (to.b - from.b) * position,
+      from.a + (to.a - from.a) * position
+    )
+  }
+
+  function quotaColor(remainingPercent) {
+    var health = Model.quotaHealth(remainingPercent)
+    return health === null ? dim : mixColor(urgent, accent, health)
+  }
+
+  function resetColor(window) {
+    var closeness = Model.resetCloseness(window, nowMs)
+    return closeness === null ? dim : mixColor(foreground, accent, 0.45 + closeness * 0.55)
+  }
+
+  function resetCreditColor(availableCount) {
+    var health = Model.resetCreditHealth(availableCount)
+    return health === null ? dim : mixColor(urgent, accent, health)
+  }
+
+  function expiryColor(value) {
+    var health = Model.expiryHealth(value, nowMs)
+    return health === null ? dim : mixColor(urgent, accent, health)
+  }
+
   function providerForId(providerId) {
     for (var i = 0; i < providers.length; i++)
       if (providers[i].providerId === providerId) return providers[i]
@@ -569,7 +599,7 @@ Panel {
     property real value: 0
     property bool alarming: false
     property real markerValue: -1
-    property color fillColor: root.accent
+    property color fillColor: root.quotaColor(value)
     property real thickness: Math.max(Style.space(5), Math.round(Style.spacing.controlHeight * 0.16))
 
     implicitHeight: thickness
@@ -681,13 +711,10 @@ Panel {
       Text {
         id: compactTitle
         anchors.left: parent.left
-        anchors.right: compactReset.left
+        anchors.right: compactPercent.left
         anchors.rightMargin: Style.space(8)
-        text: compactLimit.window
-          ? compactLimit.window.title.toUpperCase() + " · "
-            + Model.formatPercent(compactLimit.window.remainingPercent) + " LEFT"
-          : ""
-        color: compactLimit.limitAlarming ? root.urgent : root.foreground
+        text: compactLimit.window ? compactLimit.window.title.toUpperCase() : ""
+        color: root.foreground
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         font.bold: true
@@ -695,12 +722,26 @@ Panel {
       }
 
       Text {
+        id: compactPercent
+        anchors.right: compactReset.left
+        anchors.rightMargin: Style.space(10)
+        text: compactLimit.window
+          ? Model.formatPercent(compactLimit.window.remainingPercent) + " LEFT"
+          : ""
+        color: compactLimit.window ? root.quotaColor(compactLimit.window.remainingPercent) : root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
+      }
+
+      Text {
         id: compactReset
         anchors.right: parent.right
         text: compactLimit.window ? Model.resetLabel(compactLimit.window, root.nowMs).toUpperCase() : ""
-        color: root.dim
+        color: root.resetColor(compactLimit.window)
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
+        font.bold: true
       }
     }
 
@@ -862,9 +903,12 @@ Panel {
           text: providerRow.expanded && providerRow.provider
             ? [providerRow.provider.accountLabel, providerRow.provider.planLabel].filter(function(value) { return value !== "" }).join(" · ")
             : (providerRow.headline ? Model.formatPercent(providerRow.headline.remainingPercent) + " LEFT" : "NO LIMIT")
-          color: root.dim
+          color: providerRow.expanded
+            ? root.foreground
+            : (providerRow.headline ? root.quotaColor(providerRow.headline.remainingPercent) : root.dim)
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
+          font.bold: !providerRow.expanded && !!providerRow.headline
           elide: Text.ElideLeft
         }
       }
@@ -930,7 +974,9 @@ Panel {
                 : (providerRow.provider && providerRow.provider.credits
                   ? Model.formatMoney(providerRow.provider.credits.remaining) + " REMAINING"
                   : "")
-              color: root.foreground
+              color: providerRow.provider && providerRow.provider.resetCredits
+                ? root.resetCreditColor(providerRow.provider.resetCredits.availableCount)
+                : root.foreground
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
               font.bold: true
@@ -945,9 +991,12 @@ Panel {
               text: visible
                 ? Model.expiryLabel(providerRow.provider.resetCredits.expiresAt, root.nowMs).toUpperCase()
                 : ""
-              color: root.dim
+              color: providerRow.provider && providerRow.provider.resetCredits
+                ? root.expiryColor(providerRow.provider.resetCredits.expiresAt)
+                : root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
+              font.bold: true
               horizontalAlignment: Text.AlignRight
             }
           }
@@ -1079,7 +1128,7 @@ Panel {
         id: limitUsed
         anchors.right: parent.right
         text: limitRow.window ? Model.formatPercent(limitRow.window.remainingPercent) + " left" : ""
-        color: limitRow.limitAlarming ? root.urgent : root.foreground
+        color: limitRow.window ? root.quotaColor(limitRow.window.remainingPercent) : root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         font.bold: true
@@ -1095,14 +1144,31 @@ Panel {
       alarming: limitRow.limitAlarming
     }
 
-    Text {
+    Item {
       width: parent.width
-      text: limitRow.window
-        ? Model.formatPercent(limitRow.window.usedPercent) + " used · " + Model.resetLabel(limitRow.window, root.nowMs)
-        : ""
-      color: root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
+      implicitHeight: Math.max(limitUsedValue.implicitHeight, limitResetValue.implicitHeight)
+
+      Text {
+        id: limitUsedValue
+        anchors.left: parent.left
+        anchors.right: limitResetValue.left
+        anchors.rightMargin: Style.space(10)
+        text: limitRow.window ? Model.formatPercent(limitRow.window.usedPercent) + " used" : ""
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        elide: Text.ElideRight
+      }
+
+      Text {
+        id: limitResetValue
+        anchors.right: parent.right
+        text: limitRow.window ? Model.resetLabel(limitRow.window, root.nowMs) : ""
+        color: root.resetColor(limitRow.window)
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
+      }
     }
 
     Text {
@@ -1663,7 +1729,9 @@ Panel {
             text: detail.provider && detail.provider.resetCredits
               ? Math.round(detail.provider.resetCredits.availableCount) + " available"
               : ""
-            color: root.foreground
+            color: detail.provider && detail.provider.resetCredits
+              ? root.resetCreditColor(detail.provider.resetCredits.availableCount)
+              : root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
             font.bold: true
@@ -1678,9 +1746,12 @@ Panel {
               && detail.provider.resetCredits.expiresAt !== ""
               ? Model.expiryLabel(detail.provider.resetCredits.expiresAt, root.nowMs)
               : ""
-            color: root.dim
+            color: detail.provider && detail.provider.resetCredits
+              ? root.expiryColor(detail.provider.resetCredits.expiresAt)
+              : root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
+            font.bold: true
             horizontalAlignment: Text.AlignRight
             elide: Text.ElideLeft
           }

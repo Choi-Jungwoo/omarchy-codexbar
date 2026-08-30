@@ -9,7 +9,8 @@ vm.createContext(context)
 vm.runInContext(`${source}\nglobalThis.Model = {
   normalizeProviders, formatPercent, resetLabel, formatTokens, formatMoney, costSummary,
   last30DaysSummary, overviewProviders, dailyMaximum, expiryLabel, normalizeRadarInsights,
-  viewTabs, hasCompleteRadarRecommendations
+  viewTabs, hasCompleteRadarRecommendations, quotaHealth, resetCloseness,
+  resetCreditHealth, expiryHealth
 }`, context)
 const { Model } = context
 
@@ -146,6 +147,30 @@ test("missing and malformed optional values stay readable", () => {
   assert.equal(Model.formatTokens(undefined), "—")
   assert.equal(Model.formatMoney(undefined), "—")
   assert.equal(Model.resetLabel(null, Date.now()), "Reset unavailable")
+})
+
+test("quota and reset emphasis follow the live values", () => {
+  assert.equal(Model.quotaHealth(10), 0)
+  assert.equal(Model.quotaHealth(55), 0.5)
+  assert.equal(Model.quotaHealth(100), 1)
+  assert.equal(Model.quotaHealth(undefined), null)
+
+  const now = new Date("2026-08-31T00:00:00Z").getTime()
+  const weekly = { resetsAt: "2026-09-07T00:00:00Z", windowMinutes: 10080 }
+  const nearlyReset = { resetsAt: "2026-08-31T01:00:00Z", windowMinutes: 10080 }
+  assert.equal(Model.resetCloseness(weekly, now), 0)
+  assert.ok(Model.resetCloseness(nearlyReset, now) > 0.99)
+  assert.equal(Model.resetCloseness({}, now), null)
+
+  assert.equal(Model.resetCreditHealth(0), 0)
+  assert.equal(Model.resetCreditHealth(1), 0.5)
+  assert.equal(Model.resetCreditHealth(2), 1)
+  assert.equal(Model.resetCreditHealth(undefined), null)
+
+  assert.equal(Model.expiryHealth("2026-08-31T00:00:00Z", now), 0)
+  assert.equal(Model.expiryHealth("2026-09-15T00:00:00Z", now), 0.5)
+  assert.equal(Model.expiryHealth("2026-09-30T00:00:00Z", now), 1)
+  assert.equal(Model.expiryHealth("", now), null)
 })
 
 test("Codex Radar recommendations become a compact ordered ledger", () => {

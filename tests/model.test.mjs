@@ -75,7 +75,7 @@ test("30-day totals, account identity, reset credits, and daily costs stay avail
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
   const providers = Model.normalizeProviders([{
     provider: "codex",
-    account: "dev@example.com",
+    account: "ijungwoo02@gmail.com",
     usage: {
       loginMethod: "pro",
       primary: { usedPercent: 30 },
@@ -98,7 +98,7 @@ test("30-day totals, account identity, reset credits, and daily costs stay avail
   }])
 
   const codex = providers.find(provider => provider.providerId === "codex")
-  assert.equal(codex.accountLabel, "dev@example.com")
+  assert.equal(codex.accountLabel, "ij••••••••@gmail.com")
   assert.equal(codex.planLabel, "Pro")
   assert.equal(codex.resetCredits.availableCount, 2)
   assert.equal(codex.resetCredits.expiresAt, "2026-09-21T00:25:27Z")

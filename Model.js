@@ -208,10 +208,23 @@ function creditsFor(record) {
   }
 }
 
+function maskedAccountLabel(value) {
+  var label = nonEmpty(value)
+  if (label === "") return ""
+
+  var at = label.lastIndexOf("@")
+  var local = at > 0 ? label.slice(0, at) : label
+  var domain = at > 0 ? label.slice(at) : ""
+  if (local.length === 1) return "•" + domain
+
+  var visible = local.length > 4 ? 2 : 1
+  return local.slice(0, visible) + "•".repeat(Math.max(2, local.length - visible)) + domain
+}
+
 function identityFor(record) {
   var usage = record && record.usage ? record.usage : {}
   var identity = usage.identity && typeof usage.identity === "object" ? usage.identity : {}
-  var accountLabel = nonEmpty(usage.accountEmail || identity.accountEmail || record.account)
+  var accountLabel = maskedAccountLabel(usage.accountEmail || identity.accountEmail || record.account)
   var plan = nonEmpty(usage.loginMethod || identity.loginMethod)
   return {
     accountLabel: accountLabel,

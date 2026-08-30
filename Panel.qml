@@ -193,8 +193,7 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(380))
-    contentHeight: panel.fittedContentHeight(
-      Math.max(contentColumn.implicitHeight, Style.space(640)), Style.space(640))
+    contentHeight: panel.cappedContentHeight(Style.space(720))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -218,7 +217,13 @@ Panel {
 
       Flickable {
         id: panelFlick
-        anchors.fill: parent
+        anchors {
+          top: parent.top
+          left: parent.left
+          right: parent.right
+          bottom: footerColumn.top
+          bottomMargin: Style.space(12)
+        }
         contentWidth: width
         contentHeight: contentColumn.implicitHeight
         clip: true
@@ -384,12 +389,17 @@ Panel {
             width: parent.width
             sourceComponent: root.selectedViewId === "overview" ? overviewContent : providerContent
           }
+        }
+      }
 
-          PanelSeparator { foreground: root.foreground }
+      Column {
+        id: footerColumn
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        spacing: Style.space(8)
 
-          Column {
-            width: parent.width
-            spacing: Style.space(8)
+        PanelSeparator { foreground: root.foreground }
 
             Item {
               width: parent.width
@@ -425,9 +435,11 @@ Panel {
 
                 PanelSectionHeader {
                   id: costHeader
+                  width: parent.width
                   text: "COST"
                   foreground: root.foreground
                   fontFamily: root.fontFamily
+                  horizontalAlignment: Text.AlignRight
                 }
                 Text {
                   id: costValue
@@ -470,8 +482,6 @@ Panel {
           }
         }
       }
-    }
-  }
 
   component UsageMeter: Item {
     id: meter

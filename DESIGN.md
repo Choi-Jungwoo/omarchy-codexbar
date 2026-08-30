@@ -62,7 +62,7 @@ CodexBar 是 Omarchy 桌面中的紧凑原生仪表，而不是独立应用或�
 
 CodexBar 以现有 Omarchy 右侧区域 `BarIconButton` 为入口；它不是一条独立 bar。点击入口打开锚定于该按钮的 `KeyboardPanel`。弹层的原生目标几何为 380×720 逻辑像素（`Style.space(380)` × `Style.space(720)`），小屏由宿主可用高度自动封顶。
 
-面板分成三个稳定区域：顶部连续标签轨道固定；中间 hero、状态反馈和当前 Overview/Radar/provider 内容独立垂直滚动；底部 `UPDATE`、`COST`（Radar 中为 `SOURCE`）、Refresh 与 Exit 固定。滚动条位于卡片最右侧的宿主 padding 内，不占中间内容宽度；滚动内容左右边距保持相等。主要纵向节奏由 `Style.space(12)` 建立，账本与页脚内部使用更紧凑的 7–10 个 style-space 单位。
+面板分成三个稳定区域：顶部连续标签轨道固定；中间 hero、状态反馈和当前 Overview/Radar/provider 内容独立垂直滚动；底部 `UPDATE`、`COST`（Radar 中为 `SOURCE`）与 Refresh 固定。滚动条位于卡片最右侧的宿主 padding 内，不占中间内容宽度；滚动内容左右边距保持相等。主要纵向节奏由 `Style.space(12)` 建立，账本与页脚内部使用更紧凑的 7–10 个 style-space 单位。
 
 分段轨道始终是一整块连续边框表面，顺序固定为 Overview → Codex → Radar → 其他真实 provider；没有 Codex 时 Radar 紧跟 Overview。每段最小宽度为 `Style.space(84)`，轨道高度为 `Style.space(34)`；标签过多时轨道水平滚动，不压缩到不可读。
 
@@ -92,7 +92,7 @@ Overview 在 30 天总价数字正下方以同一行两个无分隔 compact cell
 
 - 锚定 Bar Entry，继承宿主 bar、弹层尺寸计算、焦点管理和跨面板切换行为。
 - 打开时恢复上次选中的面板，将 Provider Ledger 游标和内容滚动复位到顶部，并立即请求刷新。
-- 顶部标签轨道和底部 UPDATE/COST（或 SOURCE）/Refresh/Exit 始终固定，只有中间 hero/content 使用止于边界的 `Flickable`。
+- 顶部标签轨道和底部 UPDATE/COST（或 SOURCE）/Refresh 始终固定，只有中间 hero/content 使用止于边界的 `Flickable`。
 - 只在内容超过视口时显示滚动条；滚动条落在卡片最右侧的宿主 padding 内，不挤占内容列，内容左右边距相等。
 
 ### Provider Segment Track
@@ -144,7 +144,7 @@ Overview 在 30 天总价数字正下方以同一行两个无分隔 compact cell
 
 - 左右方向键按 Overview → Codex → Radar → 其他 provider 的顺序循环切换；Overview 中上下键移动 provider 游标，落到 Codex 时提供与悬停等价的展开状态；Radar 与详情中上下键按 `Style.space(56)` 滚动。
 - Enter/激活键在 Overview 打开当前提供商，在详情触发刷新；Escape 关闭；Tab/Shift+Tab 交给宿主切换面板。
-- `R` 刷新，`O` 返回 Overview。鼠标支持分段点击、Provider Ledger 行悬停/点击、滚轮/拖动滚动、Retry、Refresh 与 Exit panel 按钮；Exit panel 只关闭弹层。
+- `R` 刷新，`O` 返回 Overview。鼠标支持分段点击、Provider Ledger 行悬停/点击、滚轮/拖动滚动、Retry 与 Refresh；再次点击托盘入口、点击面板外部或按 Escape 关闭弹层。
 
 ## Do's and Don'ts
 

@@ -524,17 +524,6 @@ Panel {
               opacity: enabled ? 1 : 0.55
               onClicked: root.refreshCurrentView()
             }
-
-            Button {
-              width: parent.width
-              text: "Exit panel"
-              bordered: true
-              foreground: root.foreground
-              accent: root.accent
-              fontFamily: root.fontFamily
-              fontSize: Style.font.bodySmall
-              onClicked: root.close()
-            }
           }
         }
 

@@ -71,6 +71,7 @@ function normalizedWindow(record, key, raw, order) {
   var usedPercent = clampPercent(raw.usedPercent)
   if (usedPercent === null) return null
   var pace = paceForWindow(record, key, raw)
+  var expectedUsedPercent = clampPercent(pace && pace.expectedUsedPercent)
   return {
     id: nonEmpty(raw.id) || key,
     title: titleForWindow(key, raw),
@@ -81,6 +82,9 @@ function normalizedWindow(record, key, raw, order) {
     windowMinutes: numberOrNull(raw.windowMinutes),
     paceSummary: nonEmpty(pace && pace.summary),
     paceStage: nonEmpty(pace && pace.stage),
+    expectedUsedPercent: expectedUsedPercent,
+    expectedRemainingPercent: expectedUsedPercent === null ? null : 100 - expectedUsedPercent,
+    deltaPercent: numberOrNull(pace && pace.deltaPercent),
     willLastToReset: pace && typeof pace.willLastToReset === "boolean" ? pace.willLastToReset : null,
     order: order
   }
@@ -122,17 +126,39 @@ function localDateKey(date) {
     + "-" + String(value.getDate()).padStart(2, "0")
 }
 
-function dailyCostRow(costRecord) {
+function normalizedDailyCosts(costRecord) {
   var days = costRecord && Array.isArray(costRecord.daily) ? costRecord.daily : []
-  var today = localDateKey(new Date())
+  var result = []
   for (var i = 0; i < days.length; i++) {
     var row = days[i] || {}
     var date = nonEmpty(row.date || row.day)
-    if (date !== today) continue
+    if (date === "") continue
+    var costUSD = numberOrNull(row.costUSD !== undefined
+      ? row.costUSD
+      : (row.totalCostUSD !== undefined ? row.totalCostUSD : (row.totalCost !== undefined ? row.totalCost : row.cost)))
+    var tokens = numberOrNull(row.tokens !== undefined ? row.tokens : row.totalTokens)
+    if (costUSD === null && tokens === null) continue
+    result.push({
+      date: date,
+      label: date.length >= 10 ? date.slice(5) : date,
+      costUSD: costUSD,
+      tokens: tokens
+    })
+  }
+  result.sort(function(a, b) { return a.date.localeCompare(b.date) })
+  return result
+}
+
+function dailyCostRow(costRecord) {
+  var days = normalizedDailyCosts(costRecord)
+  var today = localDateKey(new Date())
+  for (var i = 0; i < days.length; i++) {
+    var row = days[i] || {}
+    if (row.date !== today) continue
     return {
       label: "Today",
-      costUSD: numberOrNull(row.costUSD !== undefined ? row.costUSD : (row.totalCostUSD !== undefined ? row.totalCostUSD : row.cost)),
-      tokens: numberOrNull(row.tokens !== undefined ? row.tokens : row.totalTokens)
+      costUSD: row.costUSD,
+      tokens: row.tokens
     }
   }
   return null
@@ -156,6 +182,7 @@ function normalizedCost(record) {
     sessionTokens: sessionTokens,
     last30DaysCostUSD: numberOrNull(record.last30DaysCostUSD),
     last30DaysTokens: numberOrNull(record.last30DaysTokens),
+    daily: normalizedDailyCosts(record),
     updatedAt: nonEmpty(record.updatedAt)
   }
 }
@@ -181,6 +208,40 @@ function creditsFor(record) {
   }
 }
 
+function identityFor(record) {
+  var usage = record && record.usage ? record.usage : {}
+  var identity = usage.identity && typeof usage.identity === "object" ? usage.identity : {}
+  var accountLabel = nonEmpty(usage.accountEmail || identity.accountEmail || record.account)
+  var plan = nonEmpty(usage.loginMethod || identity.loginMethod)
+  return {
+    accountLabel: accountLabel,
+    planLabel: plan === "" ? "" : providerName(plan)
+  }
+}
+
+function resetCreditsFor(record) {
+  var usage = record && record.usage ? record.usage : {}
+  var credits = usage.codexResetCredits
+  if (!credits || typeof credits !== "object") return null
+  var availableCount = numberOrNull(credits.availableCount)
+  if (availableCount === null && Array.isArray(credits.credits)) availableCount = credits.credits.length
+  if (availableCount === null) return null
+  var expiresAt = ""
+  var entries = Array.isArray(credits.credits) ? credits.credits : []
+  for (var i = 0; i < entries.length; i++) {
+    var entry = entries[i] || {}
+    var status = nonEmpty(entry.status).toLowerCase()
+    if (status !== "" && status !== "available") continue
+    var candidate = nonEmpty(entry.expires_at || entry.expiresAt)
+    if (candidate !== "" && (expiresAt === "" || candidate < expiresAt)) expiresAt = candidate
+  }
+  return {
+    availableCount: availableCount,
+    expiresAt: expiresAt,
+    updatedAt: nonEmpty(credits.updatedAt)
+  }
+}
+
 function normalizeProviders(usagePayload, costPayload) {
   var records = asArray(usagePayload)
   var costs = costIndex(costPayload)
@@ -195,6 +256,7 @@ function normalizeProviders(usagePayload, costPayload) {
 
     var windows = usageWindows(record)
     var usage = record.usage || {}
+    var identity = identityFor(record)
     providers.push({
       providerId: providerId,
       providerName: providerName(providerId),
@@ -203,7 +265,10 @@ function normalizeProviders(usagePayload, costPayload) {
       windows: windows,
       bindingWindow: windows.length > 0 ? windows[0] : null,
       credits: creditsFor(record),
+      resetCredits: resetCreditsFor(record),
       cost: costs[providerId] || null,
+      accountLabel: identity.accountLabel,
+      planLabel: identity.planLabel,
       updatedAt: nonEmpty(usage.updatedAt || record.updatedAt),
       dataConfidence: nonEmpty(usage.dataConfidence)
     })
@@ -256,6 +321,19 @@ function updatedLabel(value, nowMs) {
   return "Updated " + Math.floor(age / 86400000) + "d ago"
 }
 
+function expiryLabel(value, nowMs) {
+  var text = nonEmpty(value)
+  if (text === "") return "Expiry unavailable"
+  var date = new Date(text)
+  var timestamp = date.getTime()
+  if (!isFinite(timestamp)) return "Expires " + text
+  if (timestamp <= nowMs) return "Expired"
+  var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  var deadline = months[date.getMonth()] + " " + date.getDate()
+  if (date.getFullYear() !== new Date(nowMs).getFullYear()) deadline += ", " + date.getFullYear()
+  return "Expires " + deadline + " · " + formatDuration(timestamp - nowMs)
+}
+
 function formatTokens(value) {
   var number = numberOrNull(value)
   if (number === null) return "—"
@@ -290,4 +368,52 @@ function costSummary(providers) {
   if (hasCost) parts.push(formatMoney(cost))
   if (hasTokens) parts.push(formatTokens(tokens) + " tokens")
   return (label || "Current") + " " + parts.join(" · ")
+}
+
+function last30DaysSummary(providers) {
+  var cost = 0
+  var tokens = 0
+  var costProviderCount = 0
+  var hasCost = false
+  var hasTokens = false
+  var rows = Array.isArray(providers) ? providers : []
+  for (var i = 0; i < rows.length; i++) {
+    var item = rows[i] && rows[i].cost
+    if (!item) continue
+    var counted = item.last30DaysCostUSD !== null || item.last30DaysTokens !== null
+    if (counted) costProviderCount++
+    if (item.last30DaysCostUSD !== null) { cost += item.last30DaysCostUSD; hasCost = true }
+    if (item.last30DaysTokens !== null) { tokens += item.last30DaysTokens; hasTokens = true }
+  }
+  return {
+    providerCount: rows.length,
+    costProviderCount: costProviderCount,
+    costUSD: hasCost ? cost : null,
+    tokens: hasTokens ? tokens : null,
+    hasCost: hasCost,
+    hasTokens: hasTokens
+  }
+}
+
+function overviewProviders(providers) {
+  var rows = Array.isArray(providers) ? providers.slice() : []
+  var result = []
+  for (var i = 0; i < rows.length; i++)
+    if (rows[i] && rows[i].providerId === "codex") result.push(rows[i])
+  for (var j = 0; j < rows.length; j++)
+    if (!rows[j] || rows[j].providerId !== "codex") result.push(rows[j])
+  return result
+}
+
+function dailyMaximum(days) {
+  // QML exposes Repeater-backed JavaScript lists as array-like values that do
+  // not always satisfy Array.isArray(), so accept any finite-length sequence.
+  var rows = days && typeof days.length === "number" ? days : []
+  var maximum = 0
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i] || {}
+    var value = row.costUSD !== null && row.costUSD !== undefined ? Number(row.costUSD) : Number(row.tokens)
+    if (isFinite(value)) maximum = Math.max(maximum, value)
+  }
+  return maximum
 }

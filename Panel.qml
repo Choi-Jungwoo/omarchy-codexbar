@@ -1,9 +1,9 @@
 /*
-THESIS: Default Overview ranks real providers by the quota most likely to block the next prompt; it refuses static tabs and provider-first opening.
+THESIS: Default Overview leads with truthful 30-day usage and a provider ledger; only Codex reveals inline detail on hover or keyboard focus.
 OWN-WORLD: Omarchy theme tokens, flat popup surfaces, fine dividers, compact mono typography, restrained accent, and urgent color only for risk.
-STORY: See service health, scan the constraint queue, then open one provider for every available limit and cost fact.
-FIRST VIEWPORT: A 380×640 tray panel places dynamic tabs first, a compact status hero second, ranked quota rows in the center, and freshness/cost/refresh at the foot.
-FORM: Constraint Queue, structure 7, seed 2cdaad50.
+STORY: See 30-day spend, scan every available provider, hover Codex for its account, limits, reset credits, cost split, and daily history.
+FIRST VIEWPORT: A 380×640 tray panel places dynamic tabs first, a 30-day summary second, compact provider rows in the center, and freshness/current cost/refresh at the foot.
+FORM: Usage Ledger, adapted from the user-supplied CodexBar tray references while retaining the existing Omarchy visual world.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 */
 
@@ -33,9 +33,13 @@ Panel {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   readonly property var providers: service.providers
+  readonly property var overviewProviders: Model.overviewProviders(providers)
+  readonly property var overviewSummary: Model.last30DaysSummary(providers)
+  readonly property bool hasCodex: providerForId("codex") !== null
   property string selectedViewId: "overview"
   property int queueCursor: 0
   property bool cursorActive: false
+  property bool keyboardCursorActive: false
   property double nowMs: Date.now()
 
   readonly property var selectedProvider: providerForId(selectedViewId)
@@ -85,10 +89,6 @@ Panel {
     if (panelFlick) panelFlick.contentY = 0
   }
 
-  function secondaryWindow(provider) {
-    return provider && provider.windows && provider.windows.length > 1 ? provider.windows[1] : null
-  }
-
   function statusLabel() {
     if (service.status === "stopped") return "SERVICE STOPPED"
     if (service.status === "starting") return "CONNECTING"
@@ -123,8 +123,9 @@ Panel {
 
   function moveVertical(delta) {
     cursorActive = true
-    if (selectedViewId === "overview" && providers.length > 0) {
-      queueCursor = clamp(queueCursor + delta, 0, providers.length - 1)
+    keyboardCursorActive = true
+    if (selectedViewId === "overview" && overviewProviders.length > 0) {
+      queueCursor = clamp(queueCursor + delta, 0, overviewProviders.length - 1)
       return
     }
     panelFlick.contentY = clamp(panelFlick.contentY + delta * Style.space(56), 0,
@@ -132,7 +133,7 @@ Panel {
   }
 
   function activateCursor() {
-    if (selectedViewId === "overview" && providers.length > 0) openProvider(providers[queueCursor].providerId)
+    if (selectedViewId === "overview" && overviewProviders.length > 0) openProvider(overviewProviders[queueCursor].providerId)
     else service.refreshNow()
   }
 
@@ -141,6 +142,7 @@ Panel {
     selectedViewId = "overview"
     queueCursor = 0
     cursorActive = false
+    keyboardCursorActive = false
     nowMs = Date.now()
     if (panelFlick) panelFlick.contentY = 0
     service.refreshNow()
@@ -201,6 +203,7 @@ Panel {
       onMoveRequested: function(dx, dy) {
         if (dx !== 0) {
           root.cursorActive = true
+          root.keyboardCursorActive = true
           root.selectTab(root.selectedTabIndex() + dx)
         }
         if (dy !== 0) root.moveVertical(dy)
@@ -290,7 +293,9 @@ Panel {
               Text {
                 id: heroTitle
                 width: parent.width
-                text: root.selectedViewId === "overview" ? "CodexBar" : (root.selectedProvider ? root.selectedProvider.providerName : "CodexBar")
+                text: root.selectedViewId === "overview"
+                  ? "Usage & spend · 30 days"
+                  : (root.selectedProvider ? root.selectedProvider.providerName : "CodexBar")
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.title
@@ -461,6 +466,8 @@ Panel {
     id: meter
     property real value: 0
     property bool alarming: false
+    property real markerValue: -1
+    property color fillColor: root.accent
     property real thickness: Math.max(Style.space(5), Math.round(Style.spacing.controlHeight * 0.16))
 
     implicitHeight: thickness
@@ -470,6 +477,7 @@ Panel {
       anchors.fill: parent
       radius: height / 2
       color: root.track
+      clip: true
 
       Rectangle {
         anchors.left: parent.left
@@ -477,9 +485,22 @@ Panel {
         anchors.bottom: parent.bottom
         width: parent.width * root.clamp(meter.value / 100, 0, 1)
         radius: parent.radius
-        color: meter.alarming ? root.urgent : root.foreground
+        color: meter.alarming ? root.urgent : meter.fillColor
 
         Behavior on width {
+          NumberAnimation { duration: 220; easing.type: Easing.OutExpo }
+        }
+      }
+
+      Rectangle {
+        visible: meter.markerValue >= 0 && meter.markerValue <= 100
+        x: Math.round(parent.width * root.clamp(meter.markerValue / 100, 0, 1) - width / 2)
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: Math.max(1, Style.space(2))
+        color: Color.popups.background
+
+        Behavior on x {
           NumberAnimation { duration: 220; easing.type: Easing.OutExpo }
         }
       }
@@ -533,28 +554,179 @@ Panel {
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onEntered: root.cursorActive = true
+      onEntered: {
+        root.cursorActive = true
+        root.keyboardCursorActive = false
+      }
       onClicked: root.selectTab(tabSegment.tabIndex)
     }
   }
 
-  component QueueRow: CursorSurface {
-    id: queueRow
+  component CompactLimitRow: Column {
+    id: compactLimit
+    property var window: null
+    property bool showPace: false
+
+    readonly property bool limitAlarming: window && window.usedPercent >= 90
+
+    width: parent ? parent.width : 0
+    spacing: Style.space(4)
+
+    Item {
+      width: parent.width
+      implicitHeight: Math.max(compactTitle.implicitHeight, compactReset.implicitHeight)
+
+      Text {
+        id: compactTitle
+        anchors.left: parent.left
+        anchors.right: compactReset.left
+        anchors.rightMargin: Style.space(8)
+        text: compactLimit.window
+          ? compactLimit.window.title.toUpperCase() + " · "
+            + Model.formatPercent(compactLimit.window.remainingPercent) + " LEFT"
+          : ""
+        color: compactLimit.limitAlarming ? root.urgent : root.foreground
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
+        elide: Text.ElideRight
+      }
+
+      Text {
+        id: compactReset
+        anchors.right: parent.right
+        text: compactLimit.window ? Model.resetLabel(compactLimit.window, root.nowMs).toUpperCase() : ""
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+      }
+    }
+
+    UsageMeter {
+      width: parent.width
+      value: compactLimit.window ? compactLimit.window.remainingPercent : 0
+      markerValue: compactLimit.window && compactLimit.window.expectedRemainingPercent !== null
+        ? compactLimit.window.expectedRemainingPercent
+        : -1
+      alarming: compactLimit.limitAlarming
+      thickness: Math.max(Style.space(4), Math.round(Style.spacing.controlHeight * 0.12))
+    }
+
+    Text {
+      visible: compactLimit.showPace && text !== ""
+      width: parent.width
+      text: compactLimit.window ? compactLimit.window.paceSummary : ""
+      color: root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      elide: Text.ElideRight
+    }
+  }
+
+  component DailyCostChart: Column {
+    id: dailyChart
+    property var days: []
+    readonly property var chartDays: days && days.length > 7 ? days.slice(days.length - 7) : (days || [])
+    readonly property real maximum: Model.dailyMaximum(chartDays)
+
+    width: parent ? parent.width : 0
+    spacing: Style.space(4)
+
+    Item {
+      id: chartPlot
+      width: parent.width
+      implicitHeight: Style.space(58)
+
+      Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 1
+        color: root.alpha(root.foreground, 0.18)
+      }
+
+      Row {
+        anchors.fill: parent
+        spacing: Style.space(4)
+
+        Repeater {
+          model: dailyChart.chartDays
+
+          Item {
+            required property var modelData
+            width: (chartPlot.width - Math.max(0, dailyChart.chartDays.length - 1) * Style.space(4))
+              / Math.max(1, dailyChart.chartDays.length)
+            height: chartPlot.height
+
+            readonly property real barValue: modelData.costUSD !== null ? modelData.costUSD : modelData.tokens
+
+            Rectangle {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              height: dailyChart.maximum > 0
+                ? Math.max(Style.space(3), parent.height * parent.barValue / dailyChart.maximum)
+                : Style.space(3)
+              radius: Math.min(Style.cornerRadius, width / 3)
+              color: root.alpha(root.foreground, 0.82)
+
+              Behavior on height {
+                NumberAnimation { duration: 220; easing.type: Easing.OutExpo }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    Item {
+      visible: dailyChart.chartDays.length > 0
+      width: parent.width
+      implicitHeight: Math.max(firstDay.implicitHeight, lastDay.implicitHeight)
+
+      Text {
+        id: firstDay
+        anchors.left: parent.left
+        text: dailyChart.chartDays.length > 0 ? dailyChart.chartDays[0].label : ""
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+      }
+
+      Text {
+        id: lastDay
+        anchors.right: parent.right
+        text: dailyChart.chartDays.length > 0 ? dailyChart.chartDays[dailyChart.chartDays.length - 1].label : ""
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+      }
+    }
+  }
+
+  component OverviewProviderRow: CursorSurface {
+    id: providerRow
     property var provider: null
     property int rowIndex: 0
 
     readonly property var headline: provider ? provider.bindingWindow : null
-    readonly property var secondary: root.secondaryWindow(provider)
-    readonly property bool limitAlarming: headline && headline.usedPercent >= 90
+    readonly property bool isCodex: provider && provider.providerId === "codex"
+    readonly property bool expanded: isCodex
+      && (providerMouse.containsMouse || (root.keyboardCursorActive && hasCursor))
 
-    implicitHeight: queueContent.implicitHeight + Style.space(18)
+    implicitHeight: providerContent.implicitHeight + Style.space(18)
     radius: Style.cornerRadius
     foreground: root.foreground
     accent: root.accent
     hasCursor: root.cursorActive && root.selectedViewId === "overview" && root.queueCursor === rowIndex
+    clip: true
+
+    Behavior on implicitHeight {
+      NumberAnimation { duration: 180; easing.type: Easing.OutExpo }
+    }
 
     Column {
-      id: queueContent
+      id: providerContent
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
@@ -562,102 +734,216 @@ Panel {
       anchors.rightMargin: Style.space(10)
       spacing: Style.space(7)
 
-      Text {
-        width: parent.width
-        text: queueRow.provider ? queueRow.provider.providerName.toUpperCase() : ""
-        color: root.foreground
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.caption
-        font.bold: true
-        elide: Text.ElideRight
-      }
-
       Item {
         width: parent.width
-        implicitHeight: Math.max(providerUsed.implicitHeight, providerLeft.implicitHeight)
+        implicitHeight: Math.max(providerName.implicitHeight, providerIdentity.implicitHeight)
 
         Text {
-          id: providerUsed
+          id: providerName
           anchors.left: parent.left
-          anchors.right: providerLeft.left
+          anchors.right: providerIdentity.left
           anchors.rightMargin: Style.space(10)
           anchors.verticalCenter: parent.verticalCenter
-          text: queueRow.headline ? Model.formatPercent(queueRow.headline.usedPercent) + " USED" : "LIMIT NOT REPORTED"
-          color: queueRow.limitAlarming ? root.urgent : root.foreground
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.title
-          font.bold: true
-          elide: Text.ElideRight
-        }
-        Text {
-          id: providerLeft
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          text: queueRow.headline ? Model.formatPercent(queueRow.headline.remainingPercent) + " LEFT" : ""
-          color: root.dim
+          text: providerRow.provider ? providerRow.provider.providerName.toUpperCase() : ""
+          color: root.foreground
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
           font.bold: true
-        }
-      }
-
-      UsageMeter {
-        visible: !!queueRow.headline
-        width: parent.width
-        value: queueRow.headline ? queueRow.headline.usedPercent : 0
-        alarming: queueRow.limitAlarming
-      }
-
-      Item {
-        visible: !!queueRow.headline
-        width: parent.width
-        implicitHeight: Math.max(windowTitle.implicitHeight, windowReset.implicitHeight)
-
-        Text {
-          id: windowTitle
-          anchors.left: parent.left
-          anchors.right: windowReset.left
-          anchors.rightMargin: Style.space(8)
-          text: queueRow.headline ? queueRow.headline.title.toUpperCase() : ""
-          color: root.dim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.caption
           elide: Text.ElideRight
         }
+
         Text {
-          id: windowReset
+          id: providerIdentity
           anchors.right: parent.right
-          text: queueRow.headline ? Model.resetLabel(queueRow.headline, root.nowMs).toUpperCase() : ""
+          anchors.verticalCenter: parent.verticalCenter
+          text: providerRow.expanded && providerRow.provider
+            ? [providerRow.provider.accountLabel, providerRow.provider.planLabel].filter(function(value) { return value !== "" }).join(" · ")
+            : (providerRow.headline ? Model.formatPercent(providerRow.headline.remainingPercent) + " LEFT" : "NO LIMIT")
           color: root.dim
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
+          elide: Text.ElideLeft
+        }
+      }
+
+      Column {
+        width: parent.width
+        spacing: Style.space(7)
+
+        Repeater {
+          model: providerRow.provider ? providerRow.provider.windows : []
+
+          CompactLimitRow {
+            required property var modelData
+            window: modelData
+            showPace: providerRow.expanded
+          }
         }
       }
 
       Text {
-        visible: !!queueRow.secondary
+        visible: providerRow.provider && providerRow.provider.windows.length === 0
         width: parent.width
-        text: queueRow.secondary
-          ? queueRow.secondary.title.toUpperCase() + " " + Model.formatPercent(queueRow.secondary.usedPercent)
-            + " USED · " + Model.formatPercent(queueRow.secondary.remainingPercent) + " LEFT · "
-            + Model.resetLabel(queueRow.secondary, root.nowMs).toUpperCase()
-          : ""
+        text: "Rate-limit data is unavailable."
         color: root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
-        elide: Text.ElideRight
+      }
+
+      Column {
+        visible: providerRow.expanded
+        width: parent.width
+        spacing: Style.space(8)
+
+        PanelSeparator { foreground: root.foreground }
+
+        Item {
+          visible: providerRow.provider && (!!providerRow.provider.resetCredits || !!providerRow.provider.credits)
+          width: parent.width
+          implicitHeight: Math.max(creditLabel.implicitHeight, creditValue.implicitHeight)
+
+          Text {
+            id: creditLabel
+            anchors.left: parent.left
+            anchors.top: parent.top
+            text: providerRow.provider && providerRow.provider.resetCredits ? "RESET CREDITS" : "CREDITS"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+          }
+
+          Column {
+            id: creditValue
+            anchors.right: parent.right
+            width: Math.min(parent.width * 0.68, Math.max(creditCount.implicitWidth, creditExpiry.implicitWidth))
+            spacing: Style.space(2)
+
+            Text {
+              id: creditCount
+              width: parent.width
+              text: providerRow.provider && providerRow.provider.resetCredits
+                ? Math.round(providerRow.provider.resetCredits.availableCount) + " AVAILABLE"
+                : (providerRow.provider && providerRow.provider.credits
+                  ? Model.formatMoney(providerRow.provider.credits.remaining) + " REMAINING"
+                  : "")
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              font.bold: true
+              horizontalAlignment: Text.AlignRight
+            }
+
+            Text {
+              id: creditExpiry
+              visible: providerRow.provider && providerRow.provider.resetCredits
+                && providerRow.provider.resetCredits.expiresAt !== ""
+              width: parent.width
+              text: visible
+                ? Model.expiryLabel(providerRow.provider.resetCredits.expiresAt, root.nowMs).toUpperCase()
+                : ""
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              horizontalAlignment: Text.AlignRight
+            }
+          }
+        }
+
+        Item {
+          visible: providerRow.provider && !!providerRow.provider.cost
+          width: parent.width
+          implicitHeight: Math.max(currentCost.implicitHeight, monthCostOverview.implicitHeight)
+
+          Column {
+            id: currentCost
+            anchors.left: parent.left
+            width: (parent.width - Style.space(16)) / 2
+            spacing: Style.space(2)
+
+            PanelSectionHeader {
+              text: providerRow.provider && providerRow.provider.cost
+                ? providerRow.provider.cost.summaryLabel.toUpperCase()
+                : "CURRENT"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+            }
+            Text {
+              width: parent.width
+              text: providerRow.provider && providerRow.provider.cost
+                ? Model.formatMoney(providerRow.provider.cost.summaryCostUSD)
+                : ""
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              font.bold: true
+            }
+            Text {
+              width: parent.width
+              text: providerRow.provider && providerRow.provider.cost
+                ? Model.formatTokens(providerRow.provider.cost.summaryTokens) + " tokens"
+                : ""
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+          }
+
+          Column {
+            id: monthCostOverview
+            anchors.right: parent.right
+            width: (parent.width - Style.space(16)) / 2
+            spacing: Style.space(2)
+
+            PanelSectionHeader {
+              text: "30 DAYS"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+            }
+            Text {
+              width: parent.width
+              text: providerRow.provider && providerRow.provider.cost
+                ? Model.formatMoney(providerRow.provider.cost.last30DaysCostUSD)
+                : ""
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              font.bold: true
+              horizontalAlignment: Text.AlignRight
+            }
+            Text {
+              width: parent.width
+              text: providerRow.provider && providerRow.provider.cost
+                ? Model.formatTokens(providerRow.provider.cost.last30DaysTokens) + " tokens"
+                : ""
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              horizontalAlignment: Text.AlignRight
+            }
+          }
+        }
+
+        DailyCostChart {
+          visible: providerRow.provider && providerRow.provider.cost
+            && providerRow.provider.cost.daily.length > 0
+          width: parent.width
+          days: providerRow.provider && providerRow.provider.cost ? providerRow.provider.cost.daily : []
+        }
       }
     }
 
     MouseArea {
+      id: providerMouse
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onEntered: {
         root.cursorActive = true
-        root.queueCursor = queueRow.rowIndex
+        root.keyboardCursorActive = false
+        root.queueCursor = providerRow.rowIndex
       }
-      onClicked: if (queueRow.provider) root.openProvider(queueRow.provider.providerId)
+      onClicked: if (providerRow.provider) root.openProvider(providerRow.provider.providerId)
     }
   }
 
@@ -687,7 +973,7 @@ Panel {
       Text {
         id: limitUsed
         anchors.right: parent.right
-        text: limitRow.window ? Model.formatPercent(limitRow.window.usedPercent) + " used" : ""
+        text: limitRow.window ? Model.formatPercent(limitRow.window.remainingPercent) + " left" : ""
         color: limitRow.limitAlarming ? root.urgent : root.foreground
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
@@ -697,14 +983,17 @@ Panel {
 
     UsageMeter {
       width: parent.width
-      value: limitRow.window ? limitRow.window.usedPercent : 0
+      value: limitRow.window ? limitRow.window.remainingPercent : 0
+      markerValue: limitRow.window && limitRow.window.expectedRemainingPercent !== null
+        ? limitRow.window.expectedRemainingPercent
+        : -1
       alarming: limitRow.limitAlarming
     }
 
     Text {
       width: parent.width
       text: limitRow.window
-        ? Model.formatPercent(limitRow.window.remainingPercent) + " left · " + Model.resetLabel(limitRow.window, root.nowMs)
+        ? Model.formatPercent(limitRow.window.usedPercent) + " used · " + Model.resetLabel(limitRow.window, root.nowMs)
         : ""
       color: root.dim
       font.family: root.fontFamily
@@ -727,17 +1016,79 @@ Panel {
 
     Column {
       width: parent ? parent.width : 0
-      spacing: Style.space(8)
+      spacing: Style.space(10)
+
+      Item {
+        visible: root.overviewSummary.hasCost || root.overviewSummary.hasTokens
+        width: parent.width
+        implicitHeight: Math.max(monthTotal.implicitHeight, monthCoverage.implicitHeight)
+
+        Text {
+          id: monthTotal
+          anchors.left: parent.left
+          anchors.right: monthCoverage.left
+          anchors.rightMargin: Style.space(16)
+          anchors.verticalCenter: parent.verticalCenter
+          text: root.overviewSummary.hasCost
+            ? Model.formatMoney(root.overviewSummary.costUSD)
+            : Model.formatTokens(root.overviewSummary.tokens) + " tokens"
+          color: root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Math.round(Style.font.title * 1.35)
+          font.bold: true
+          elide: Text.ElideRight
+        }
+
+        Column {
+          id: monthCoverage
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(2)
+
+          Text {
+            text: root.overviewSummary.costProviderCount + "/" + root.overviewSummary.providerCount + " PROVIDERS"
+            color: root.foreground
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+            horizontalAlignment: Text.AlignRight
+          }
+          Text {
+            visible: root.overviewSummary.hasTokens
+            text: Model.formatTokens(root.overviewSummary.tokens) + " TOKENS"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            horizontalAlignment: Text.AlignRight
+          }
+        }
+      }
+
+      Text {
+        visible: root.providers.length > 0 && !root.overviewSummary.hasCost && !root.overviewSummary.hasTokens
+        width: parent.width
+        text: "30-day cost data is unavailable for the active providers."
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+        wrapMode: Text.WordWrap
+      }
+
+      PanelSeparator {
+        visible: root.providers.length > 0
+        width: parent.width
+        foreground: root.foreground
+      }
 
       PanelSectionHeader {
         visible: root.providers.length > 0
-        text: "MOST CONSTRAINED"
+        text: root.hasCodex ? "PROVIDERS · HOVER CODEX FOR DETAILS" : "PROVIDERS"
         foreground: root.foreground
         fontFamily: root.fontFamily
       }
 
       Repeater {
-        model: root.providers
+        model: root.overviewProviders
 
         Column {
           required property var modelData
@@ -745,14 +1096,14 @@ Panel {
           width: parent.width
           spacing: Style.space(8)
 
-          QueueRow {
+          OverviewProviderRow {
             width: parent.width
             provider: modelData
             rowIndex: index
           }
 
           PanelSeparator {
-            visible: index < root.providers.length - 1
+            visible: index < root.overviewProviders.length - 1
             width: parent.width
             foreground: root.foreground
           }

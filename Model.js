@@ -296,6 +296,31 @@ function normalizeProviders(usagePayload, costPayload) {
   return providers
 }
 
+function viewTabs(providers) {
+  var items = Array.isArray(providers) ? providers : []
+  var tabs = [{ viewId: "overview", label: "Overview" }]
+  var codex = null
+  var others = []
+  var seen = {}
+
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i] || {}
+    var providerId = nonEmpty(item.providerId).toLowerCase()
+    if (providerId === "" || seen[providerId]) continue
+    seen[providerId] = true
+    var tab = {
+      viewId: providerId,
+      label: nonEmpty(item.providerName) || providerName(providerId)
+    }
+    if (providerId === "codex") codex = tab
+    else others.push(tab)
+  }
+
+  if (codex) tabs.push(codex)
+  tabs.push({ viewId: "radar", label: "Radar" })
+  return tabs.concat(others)
+}
+
 function formatPercent(value) {
   var number = numberOrNull(value)
   return number === null ? "—" : Math.round(number) + "%"
@@ -429,4 +454,248 @@ function dailyMaximum(days) {
     if (isFinite(value)) maximum = Math.max(maximum, value)
   }
   return maximum
+}
+
+function radarModelLabel(value) {
+  var model = nonEmpty(value).toLowerCase()
+  var known = {
+    "gpt-5.5": "5.5",
+    "gpt-5.6-sol": "Sol",
+    "gpt-5.6-terra": "Terra",
+    "gpt-5.6-luna": "Luna"
+  }
+  if (known[model]) return known[model]
+  return providerName(model.replace(/^gpt-/, ""))
+}
+
+function radarCategoryTitle(key) {
+  var known = {
+    daily_development: "Daily development",
+    "daily-development": "Daily development",
+    hard_problems: "Hard problems",
+    "hard-problems": "Hard problems",
+    background_automation: "Background automation",
+    "background-automation": "Background automation",
+    lobster_tasks: "Claw tasks",
+    "lobster-tasks": "Claw tasks",
+    long_running_agents: "Claw tasks",
+    "long-running-agents": "Claw tasks"
+  }
+  return known[key] || ""
+}
+
+function radarCategoryRule(key) {
+  var known = {
+    daily_development: "Balances measured intelligence, speed, and cost.",
+    "daily-development": "Balances measured intelligence, speed, and cost.",
+    hard_problems: "Prioritizes the highest measured intelligence.",
+    "hard-problems": "Prioritizes the highest measured intelligence.",
+    background_automation: "Meets the intelligence threshold, then favors lower cost.",
+    "background-automation": "Meets the intelligence threshold, then favors lower cost.",
+    lobster_tasks: "Claw tasks favor the lowest combined time and cost above the IQ threshold.",
+    "lobster-tasks": "Claw tasks favor the lowest combined time and cost above the IQ threshold.",
+    long_running_agents: "Claw tasks favor the lowest combined time and cost above the IQ threshold.",
+    "long-running-agents": "Claw tasks favor the lowest combined time and cost above the IQ threshold."
+  }
+  return known[key] || ""
+}
+
+function radarIdentity(item) {
+  return nonEmpty(item && item.model).toLowerCase() + "|" + nonEmpty(item && item.effort).toLowerCase()
+}
+
+function radarEligible(item) {
+  var model = nonEmpty(item && item.model).toLowerCase()
+  return model === "gpt-5.5" || model === "gpt-5.6-sol"
+    || model === "gpt-5.6-terra" || model === "gpt-5.6-luna"
+}
+
+function radarNumber(primary, fallback) {
+  var number = numberOrNull(primary)
+  return number === null ? numberOrNull(fallback) : number
+}
+
+function radarItem(item, canonicalIq, metrics) {
+  return {
+    model: nonEmpty(item && item.model),
+    effort: nonEmpty(item && item.effort),
+    iq: radarNumber(canonicalIq, item && item.iq),
+    average_cost_usd: numberOrNull(item && item.average_cost_usd),
+    average_price_usd: radarNumber(item && item.average_price_usd, metrics && metrics.average_price_usd),
+    average_duration_minutes: numberOrNull(item && item.average_duration_minutes),
+    average_minutes: radarNumber(item && item.average_minutes, metrics && metrics.average_minutes),
+    combined_cost_index: radarNumber(item && item.combined_cost_index, metrics && metrics.combined_cost_index)
+  }
+}
+
+function supplementRadarRecommendations(body, metricsPayload) {
+  var rawGroups = body.recommendations !== undefined
+    ? body.recommendations
+    : (body.station_recommendations !== undefined ? body.station_recommendations : body.station_recs)
+  if (!Array.isArray(rawGroups)) throw new Error("unexpected response shape")
+
+  var comprehensive = Array.isArray(body.comprehensive_points) ? body.comprehensive_points : []
+  var canonicalIq = {}
+  for (var i = 0; i < comprehensive.length; i++) {
+    var point = comprehensive[i] || {}
+    if (!radarEligible(point)) continue
+    canonicalIq[radarIdentity(point)] = numberOrNull(point.iq)
+  }
+
+  var metricsBody = metricsPayload && metricsPayload.data && typeof metricsPayload.data === "object"
+    ? metricsPayload.data
+    : metricsPayload
+  var metricRows = metricsBody && Array.isArray(metricsBody.points) ? metricsBody.points : []
+  var metricsByKey = {}
+  for (var j = 0; j < metricRows.length; j++) {
+    var metric = metricRows[j] || {}
+    metricsByKey[radarIdentity(metric)] = metric
+  }
+
+  var candidates = []
+  for (var k = 0; k < comprehensive.length; k++) {
+    var candidatePoint = comprehensive[k] || {}
+    if (!radarEligible(candidatePoint)) continue
+    var candidateKey = radarIdentity(candidatePoint)
+    candidates.push(radarItem(candidatePoint, canonicalIq[candidateKey], metricsByKey[candidateKey]))
+  }
+
+  function rankedCandidates(groupKey) {
+    var key = groupKey.replace(/_/g, "-")
+    var eligible = candidates.filter(function(item) {
+      if (item.iq === null) return false
+      if (key === "daily-development") return item.iq >= 90 && item.average_minutes !== null
+      if (key === "background-automation") return Math.round(item.iq) >= 80 && item.average_price_usd !== null
+      if (key === "long-running-agents" || key === "lobster-tasks")
+        return item.iq >= 55 && item.combined_cost_index !== null
+      return true
+    })
+    eligible.sort(function(left, right) {
+      if (key === "daily-development")
+        return left.average_minutes - right.average_minutes
+          || (left.combined_cost_index || 0) - (right.combined_cost_index || 0)
+          || right.iq - left.iq
+      if (key === "background-automation")
+        return left.average_price_usd - right.average_price_usd || right.iq - left.iq
+      if (key === "long-running-agents" || key === "lobster-tasks")
+        return left.combined_cost_index - right.combined_cost_index || right.iq - left.iq
+      return right.iq - left.iq
+        || (left.combined_cost_index === null ? Number.POSITIVE_INFINITY : left.combined_cost_index)
+          - (right.combined_cost_index === null ? Number.POSITIVE_INFINITY : right.combined_cost_index)
+    })
+    return eligible
+  }
+
+  var supplemented = []
+  for (var groupIndex = 0; groupIndex < rawGroups.length; groupIndex++) {
+    var group = rawGroups[groupIndex] || {}
+    var groupKey = nonEmpty(group.key || group.id).toLowerCase()
+    var sourceItems = Array.isArray(group.items)
+      ? group.items
+      : (Array.isArray(group.models) ? group.models : group.recommendations)
+    if (!Array.isArray(sourceItems)) sourceItems = []
+    var items = []
+    var seen = {}
+    for (var itemIndex = 0; itemIndex < sourceItems.length && items.length < 2; itemIndex++) {
+      var sourceItem = sourceItems[itemIndex] || {}
+      if (!radarEligible(sourceItem)) continue
+      var sourceKey = radarIdentity(sourceItem)
+      if (seen[sourceKey]) continue
+      items.push(radarItem(sourceItem, canonicalIq[sourceKey], metricsByKey[sourceKey]))
+      seen[sourceKey] = true
+    }
+    var ranked = rankedCandidates(groupKey)
+    for (var candidateIndex = 0; candidateIndex < ranked.length && items.length < 2; candidateIndex++) {
+      var rankedItem = ranked[candidateIndex]
+      var rankedKey = radarIdentity(rankedItem)
+      if (seen[rankedKey]) continue
+      items.push(rankedItem)
+      seen[rankedKey] = true
+    }
+    supplemented.push({
+      key: groupKey,
+      title: nonEmpty(group.title),
+      rule: nonEmpty(group.rule),
+      items: items
+    })
+  }
+  return supplemented
+}
+
+function normalizeRadarInsights(payload, metricsPayload) {
+  if (!payload || typeof payload !== "object") throw new Error("unexpected response shape")
+  var body = payload.data && typeof payload.data === "object" ? payload.data : payload
+  var rawGroups = supplementRadarRecommendations(body, metricsPayload)
+
+  var preferredOrder = {
+    daily_development: 0,
+    "daily-development": 0,
+    hard_problems: 1,
+    "hard-problems": 1,
+    background_automation: 2,
+    "background-automation": 2,
+    lobster_tasks: 3,
+    "lobster-tasks": 3,
+    long_running_agents: 3,
+    "long-running-agents": 3
+  }
+  var groups = []
+  for (var i = 0; i < rawGroups.length; i++) {
+    var group = rawGroups[i] || {}
+    var key = nonEmpty(group.key || group.id).toLowerCase()
+    if (key === "") continue
+    var rawItems = Array.isArray(group.items)
+      ? group.items
+      : (Array.isArray(group.models) ? group.models : group.recommendations)
+    if (!Array.isArray(rawItems)) continue
+
+    var items = []
+    for (var j = 0; j < rawItems.length; j++) {
+      var item = rawItems[j] || {}
+      var model = nonEmpty(item.model)
+      if (model === "") continue
+      var modelLabel = radarModelLabel(model)
+      var effort = nonEmpty(item.effort).toLowerCase()
+      items.push({
+        model: model,
+        modelLabel: modelLabel,
+        effort: effort,
+        label: [modelLabel, effort].filter(function(value) { return value !== "" }).join(" "),
+        iq: numberOrNull(item.iq),
+        durationMinutes: radarNumber(item.average_duration_minutes, item.average_minutes),
+        costUSD: radarNumber(item.average_cost_usd, item.average_price_usd)
+      })
+    }
+    if (items.length === 0) continue
+    groups.push({
+      key: key,
+      title: radarCategoryTitle(key) || nonEmpty(group.title) || providerName(key),
+      rule: radarCategoryRule(key),
+      items: items,
+      order: preferredOrder[key] === undefined ? 100 + i : preferredOrder[key]
+    })
+  }
+
+  groups.sort(function(a, b) { return a.order - b.order })
+  for (var k = 0; k < groups.length; k++) delete groups[k].order
+  return {
+    generatedAt: nonEmpty(body.generated_at || body.generatedAt),
+    sourceUpdatedAt: nonEmpty(body.source_updated_at || body.sourceUpdatedAt),
+    groups: groups
+  }
+}
+
+function hasCompleteRadarRecommendations(value) {
+  var groups = value && Array.isArray(value.groups) ? value.groups : []
+  var required = ["daily_development", "hard_problems", "background_automation", "lobster_tasks"]
+  var byKey = {}
+  for (var i = 0; i < groups.length; i++) {
+    var group = groups[i] || {}
+    byKey[nonEmpty(group.key)] = group
+  }
+  for (var j = 0; j < required.length; j++) {
+    var candidate = byKey[required[j]]
+    if (!candidate || !Array.isArray(candidate.items) || candidate.items.length !== 2) return false
+  }
+  return true
 }

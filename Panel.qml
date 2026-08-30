@@ -1,9 +1,9 @@
 /*
-THESIS: Default Overview leads with truthful 30-day usage and a provider ledger; only Codex reveals inline detail on hover or keyboard focus.
+THESIS: One tray surface joins truthful usage with compact first-glance picks and a full Radar recommendation ledger.
 OWN-WORLD: Omarchy theme tokens, flat popup surfaces, fine dividers, compact mono typography, restrained accent, and urgent color only for risk.
-STORY: See 30-day spend, scan every available provider, hover Codex for its account, limits, reset credits, cost split, and daily history.
-FIRST VIEWPORT: A 380×640 tray panel places dynamic tabs first, a 30-day summary second, compact provider rows in the center, and freshness/current cost/refresh at the foot.
-FORM: Usage Ledger, adapted from the user-supplied CodexBar tray references while retaining the existing Omarchy visual world.
+STORY: Read the 30-day total, see the daily-development and hard-problem picks with IQ directly beneath it, then scan usage or open Radar for the full comparison.
+FIRST VIEWPORT: A 380×720 tray panel fixes Overview, Codex, and Radar tabs at the top; one compact two-pick Radar row follows the Overview total, while contextual ledgers scroll between the fixed tab rail and footer controls.
+FORM: Usage Ledger extended with an English recommendation ledger, preserving the established Omarchy visual world.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 */
 
@@ -35,6 +35,9 @@ Panel {
   readonly property var providers: service.providers
   readonly property var overviewProviders: Model.overviewProviders(providers)
   readonly property var overviewSummary: Model.last30DaysSummary(providers)
+  readonly property var viewTabs: Model.viewTabs(providers)
+  readonly property var dailyDevelopmentPick: firstRadarPick("daily_development", radarService.groups)
+  readonly property var hardProblemsPick: firstRadarPick("hard_problems", radarService.groups)
   readonly property bool hasCodex: providerForId("codex") !== null
   property string selectedViewId: "overview"
   property int queueCursor: 0
@@ -43,9 +46,12 @@ Panel {
   property double nowMs: Date.now()
 
   readonly property var selectedProvider: providerForId(selectedViewId)
+  readonly property bool radarSelected: selectedViewId === "radar"
   readonly property bool alarming: providers.length > 0 && providers[0].bindingWindow
     && providers[0].bindingWindow.usedPercent >= 90
   readonly property bool failed: service.status === "error"
+  readonly property bool viewFailed: radarSelected ? radarService.status === "error" : failed
+  readonly property bool viewRefreshing: radarSelected ? radarService.refreshing : service.refreshing
   readonly property string footerCost: Model.costSummary(providers)
 
   visible: true
@@ -66,18 +72,25 @@ Panel {
     return null
   }
 
+  function firstRadarPick(key, groups) {
+    for (var i = 0; i < groups.length; i++) {
+      var group = groups[i]
+      if (group.key === key && group.items.length > 0) return group.items[0]
+    }
+    return null
+  }
+
   function selectedTabIndex() {
-    if (selectedViewId === "overview") return 0
-    for (var i = 0; i < providers.length; i++)
-      if (providers[i].providerId === selectedViewId) return i + 1
+    for (var i = 0; i < viewTabs.length; i++)
+      if (viewTabs[i].viewId === selectedViewId) return i
     return 0
   }
 
   function selectTab(index) {
-    var count = providers.length + 1
+    var count = viewTabs.length
     if (count <= 0) return
     var wrapped = ((index % count) + count) % count
-    selectedViewId = wrapped === 0 ? "overview" : providers[wrapped - 1].providerId
+    selectedViewId = viewTabs[wrapped].viewId
     queueCursor = 0
     if (panelFlick) panelFlick.contentY = 0
   }
@@ -90,6 +103,13 @@ Panel {
   }
 
   function statusLabel() {
+    if (radarSelected) {
+      if (radarService.refreshing) return "REFRESHING"
+      if (radarService.status === "error") return radarService.groups.length > 0 ? "SHOWING LAST DATA" : "RADAR UNAVAILABLE"
+      if (radarService.status === "idle" || radarService.status === "loading") return "LOADING RADAR"
+      if (radarService.groups.length === 0) return "NO RECOMMENDATIONS"
+      return radarService.groups.length + (radarService.groups.length === 1 ? " GROUP READY" : " GROUPS READY")
+    }
     if (service.status === "stopped") return "SERVICE STOPPED"
     if (service.status === "starting") return "CONNECTING"
     if (service.status === "error") return providers.length > 0 ? "SHOWING LAST DATA" : "CONNECTION FAILED"
@@ -100,12 +120,19 @@ Panel {
   }
 
   function statusColor() {
-    if (failed || alarming) return urgent
-    if (service.status === "ready") return foreground
+    if (viewFailed || (!radarSelected && alarming)) return urgent
+    if (radarSelected ? radarService.status === "ready" : service.status === "ready") return foreground
     return dim
   }
 
   function statusHelp() {
+    if (radarSelected) {
+      if (radarService.refreshing) return ""
+      if (radarService.status === "error") return radarService.lastError || "Codex Radar is unavailable. Retry when the network is ready."
+      if (radarService.status === "ready" && radarService.groups.length === 0)
+        return "Codex Radar returned no current recommendations. Refresh to check again."
+      return ""
+    }
     if (service.status === "starting") return "Waiting for the local CodexBar service…"
     if (service.status === "error") return service.lastError || "CodexBar is unavailable. Retry when the service is ready."
     if (providers.length === 0) return "CodexBar returned no usable provider records yet. Use a provider, then refresh."
@@ -113,12 +140,21 @@ Panel {
   }
 
   function latestUpdatedLabel() {
-    return Model.updatedLabel(service.lastUpdatedAt, nowMs)
+    var value = radarSelected
+      ? (radarService.sourceUpdatedAt || radarService.generatedAt)
+      : service.lastUpdatedAt
+    return Model.updatedLabel(value, nowMs)
   }
 
   function ensureSelection() {
-    if (selectedViewId !== "overview" && !providerForId(selectedViewId)) selectedViewId = "overview"
+    if (selectedViewId !== "overview" && selectedViewId !== "radar" && !providerForId(selectedViewId))
+      selectedViewId = "overview"
     queueCursor = clamp(queueCursor, 0, Math.max(0, providers.length - 1))
+  }
+
+  function refreshCurrentView() {
+    if (radarSelected) radarService.refreshNow()
+    else service.refreshNow()
   }
 
   function moveVertical(delta) {
@@ -134,10 +170,15 @@ Panel {
 
   function activateCursor() {
     if (selectedViewId === "overview" && overviewProviders.length > 0) openProvider(overviewProviders[queueCursor].providerId)
-    else service.refreshNow()
+    else refreshCurrentView()
   }
 
   onProvidersChanged: ensureSelection()
+  onSelectedViewIdChanged: {
+    queueCursor = 0
+    if (panelFlick) panelFlick.contentY = 0
+    if (opened && radarSelected) radarService.refreshIfStale()
+  }
   onOpenedChanged: if (opened) {
     ensureSelection()
     queueCursor = 0
@@ -145,13 +186,19 @@ Panel {
     keyboardCursorActive = false
     nowMs = Date.now()
     if (panelFlick) panelFlick.contentY = 0
-    service.refreshNow()
+    refreshCurrentView()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
 
   CodexBarService {
     id: service
     settings: root.settings
+  }
+
+  CodexRadarService {
+    id: radarService
+    settings: root.settings
+    active: root.opened
   }
 
   Timer {
@@ -168,8 +215,9 @@ Panel {
     function show(): void { root.open() }
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
-    function refresh(): string { service.refreshNow(); return "ok" }
+    function refresh(): string { root.refreshCurrentView(); return "ok" }
     function overview(): string { root.selectedViewId = "overview"; return "ok" }
+    function radar(): string { root.selectedViewId = "radar"; return "ok" }
   }
 
   BarIconButton {
@@ -211,14 +259,63 @@ Panel {
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(text) {
-        if (text === "r" || text === "R") service.refreshNow()
+        if (text === "r" || text === "R") root.refreshCurrentView()
         if (text === "o" || text === "O") root.selectedViewId = "overview"
+      }
+
+      Column {
+        id: fixedHeaderColumn
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        spacing: Style.space(12)
+
+        Flickable {
+          id: tabsFlick
+          width: parent.width
+          implicitHeight: tabsTrack.implicitHeight
+          contentWidth: tabsTrack.width
+          contentHeight: height
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+          flickableDirection: Flickable.HorizontalFlick
+          interactive: contentWidth > width
+
+          BorderSurface {
+            id: tabsTrack
+            width: Math.max(tabsFlick.width, root.viewTabs.length * Style.space(84))
+            implicitHeight: Style.space(34)
+            color: "transparent"
+            borderSpec: Border.flat(root.alpha(root.foreground, 0.32), 1)
+            radius: Style.cornerRadius
+
+            Row {
+              anchors.fill: parent
+
+              Repeater {
+                model: root.viewTabs
+
+                TabSegment {
+                  required property var modelData
+                  required property int index
+                  label: modelData.label
+                  providerId: modelData.viewId
+                  tabIndex: index
+                  width: tabsTrack.width / Math.max(1, root.viewTabs.length)
+                }
+              }
+            }
+          }
+        }
+
+        PanelSeparator { foreground: root.foreground }
       }
 
       Flickable {
         id: panelFlick
         anchors {
-          top: parent.top
+          top: fixedHeaderColumn.bottom
+          topMargin: Style.space(12)
           left: parent.left
           right: parent.right
           bottom: footerColumn.top
@@ -230,59 +327,10 @@ Panel {
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
         interactive: contentHeight > height
-        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
         Column {
           id: contentColumn
           width: panelFlick.width
           spacing: Style.space(12)
-
-          Flickable {
-            id: tabsFlick
-            width: parent.width
-            implicitHeight: tabsTrack.implicitHeight
-            contentWidth: tabsTrack.width
-            contentHeight: height
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            flickableDirection: Flickable.HorizontalFlick
-            interactive: contentWidth > width
-
-            BorderSurface {
-              id: tabsTrack
-              width: Math.max(tabsFlick.width, (root.providers.length + 1) * Style.space(84))
-              implicitHeight: Style.space(34)
-              color: "transparent"
-              borderSpec: Border.flat(root.alpha(root.foreground, 0.32), 1)
-              radius: Style.cornerRadius
-
-              Row {
-                anchors.fill: parent
-
-                TabSegment {
-                  label: "Overview"
-                  providerId: "overview"
-                  tabIndex: 0
-                  width: tabsTrack.width / Math.max(1, root.providers.length + 1)
-                }
-
-                Repeater {
-                  model: root.providers
-
-                  TabSegment {
-                    required property var modelData
-                    required property int index
-                    label: modelData.providerName
-                    providerId: modelData.providerId
-                    tabIndex: index + 1
-                    width: tabsTrack.width / Math.max(1, root.providers.length + 1)
-                  }
-                }
-              }
-            }
-          }
-
-          PanelSeparator { foreground: root.foreground }
 
           Item {
             width: parent.width
@@ -300,7 +348,9 @@ Panel {
                 width: parent.width
                 text: root.selectedViewId === "overview"
                   ? "Usage & spend · 30 days"
-                  : (root.selectedProvider ? root.selectedProvider.providerName : "CodexBar")
+                  : (root.radarSelected
+                    ? "Editor's picks · Codex Radar"
+                    : (root.selectedProvider ? root.selectedProvider.providerName : "CodexBar"))
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.title
@@ -313,7 +363,9 @@ Panel {
                 width: parent.width
                 text: root.selectedViewId === "overview"
                   ? root.latestUpdatedLabel()
-                  : (root.selectedProvider && root.selectedProvider.source ? root.selectedProvider.source : "Provider usage")
+                  : (root.radarSelected
+                    ? "Measured IQ, average time, and cost"
+                    : (root.selectedProvider && root.selectedProvider.source ? root.selectedProvider.source : "Provider usage"))
                 color: root.dim
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -350,8 +402,8 @@ Panel {
             visible: root.statusHelp() !== ""
             width: parent.width
             implicitHeight: Math.max(statusMessage.implicitHeight, retryButton.implicitHeight) + Style.space(12)
-            color: root.failed ? root.alpha(root.urgent, 0.10) : root.alpha(root.foreground, 0.05)
-            borderSpec: Border.flat(root.failed ? root.alpha(root.urgent, 0.35) : root.alpha(root.foreground, 0.18), 1)
+            color: root.viewFailed ? root.alpha(root.urgent, 0.10) : root.alpha(root.foreground, 0.05)
+            borderSpec: Border.flat(root.viewFailed ? root.alpha(root.urgent, 0.35) : root.alpha(root.foreground, 0.18), 1)
             radius: Style.cornerRadius
 
             Text {
@@ -362,7 +414,7 @@ Panel {
               anchors.rightMargin: Style.space(10)
               anchors.verticalCenter: parent.verticalCenter
               text: root.statusHelp()
-              color: root.failed ? root.foreground : root.dim
+              color: root.viewFailed ? root.foreground : root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
               wrapMode: Text.WordWrap
@@ -370,7 +422,7 @@ Panel {
 
             Button {
               id: retryButton
-              visible: root.failed || service.status === "stopped"
+              visible: root.viewFailed || (!root.radarSelected && service.status === "stopped")
               anchors.right: parent.right
               anchors.rightMargin: Style.space(6)
               anchors.verticalCenter: parent.verticalCenter
@@ -381,13 +433,15 @@ Panel {
               fontFamily: root.fontFamily
               fontSize: Style.font.caption
               verticalPadding: Style.space(4)
-              onClicked: service.probe()
+              onClicked: root.radarSelected ? radarService.refreshNow() : service.probe()
             }
           }
 
           Loader {
             width: parent.width
-            sourceComponent: root.selectedViewId === "overview" ? overviewContent : providerContent
+            sourceComponent: root.radarSelected
+              ? radarContent
+              : (root.selectedViewId === "overview" ? overviewContent : providerContent)
           }
         }
       }
@@ -436,7 +490,7 @@ Panel {
                 PanelSectionHeader {
                   id: costHeader
                   width: parent.width
-                  text: "COST"
+                  text: root.radarSelected ? "SOURCE" : "COST"
                   foreground: root.foreground
                   fontFamily: root.fontFamily
                   horizontalAlignment: Text.AlignRight
@@ -444,7 +498,7 @@ Panel {
                 Text {
                   id: costValue
                   width: parent.width
-                  text: root.footerCost
+                  text: root.radarSelected ? "Codex Radar" : root.footerCost
                   color: root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -456,17 +510,19 @@ Panel {
 
             Button {
               width: parent.width
-              text: service.refreshing ? "Refreshing usage…" : "Refresh usage"
-              iconText: service.refreshing ? "󰑐" : ""
-              iconSpinning: service.refreshing
+              text: root.viewRefreshing
+                ? (root.radarSelected ? "Refreshing recommendations…" : "Refreshing usage…")
+                : (root.radarSelected ? "Refresh recommendations" : "Refresh usage")
+              iconText: root.viewRefreshing ? "󰑐" : ""
+              iconSpinning: root.viewRefreshing
               bordered: true
               foreground: root.foreground
               accent: root.accent
               fontFamily: root.fontFamily
               fontSize: Style.font.bodySmall
-              enabled: !service.refreshing
+              enabled: !root.viewRefreshing
               opacity: enabled ? 1 : 0.55
-              onClicked: service.refreshNow()
+              onClicked: root.refreshCurrentView()
             }
 
             Button {
@@ -479,6 +535,42 @@ Panel {
               fontSize: Style.font.bodySmall
               onClicked: root.close()
             }
+          }
+        }
+
+        ScrollBar {
+          id: panelScrollBar
+          parent: keyCatcher
+          x: keyCatcher.width + panel.padding - width
+          y: panelFlick.y
+          width: Style.space(3)
+          height: panelFlick.height
+          orientation: Qt.Vertical
+          size: panelFlick.visibleArea.heightRatio
+          visible: size < 1
+          active: visible
+          z: 20
+
+          background: Rectangle {
+            radius: width / 2
+            color: root.alpha(root.foreground, 0.10)
+          }
+          contentItem: Rectangle {
+            radius: width / 2
+            color: panelScrollBar.pressed
+              ? root.foreground
+              : root.alpha(root.foreground, 0.48)
+          }
+
+          Binding {
+            target: panelScrollBar
+            property: "position"
+            value: panelFlick.visibleArea.yPosition
+            when: !panelScrollBar.pressed
+          }
+
+          onPositionChanged: if (pressed) {
+            panelFlick.contentY = position * Math.max(0, panelFlick.contentHeight)
           }
         }
       }
@@ -698,6 +790,7 @@ Panel {
           }
         }
       }
+
     }
 
     Item {
@@ -1034,6 +1127,307 @@ Panel {
     }
   }
 
+  component RadarMetricRow: Item {
+    id: radarRow
+    property var recommendation: null
+
+    implicitHeight: Math.max(radarModel.implicitHeight, radarIq.implicitHeight,
+      radarDuration.implicitHeight, radarCost.implicitHeight) + Style.space(14)
+
+    Text {
+      id: radarModel
+      anchors.left: parent.left
+      anchors.right: radarIq.left
+      anchors.rightMargin: Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+      text: radarRow.recommendation ? radarRow.recommendation.label : ""
+      color: root.foreground
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+      font.bold: true
+      elide: Text.ElideRight
+    }
+
+    Text {
+      id: radarIq
+      width: Style.space(42)
+      anchors.right: radarDuration.left
+      anchors.verticalCenter: parent.verticalCenter
+      text: radarRow.recommendation && radarRow.recommendation.iq !== null
+        ? String(Math.round(radarRow.recommendation.iq))
+        : "—"
+      color: root.foreground
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+      font.bold: true
+      horizontalAlignment: Text.AlignRight
+    }
+
+    Text {
+      id: radarDuration
+      width: Style.space(60)
+      anchors.right: radarCost.left
+      anchors.verticalCenter: parent.verticalCenter
+      text: radarRow.recommendation && radarRow.recommendation.durationMinutes !== null
+        ? Math.round(radarRow.recommendation.durationMinutes) + " min"
+        : "—"
+      color: root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      font.bold: true
+      horizontalAlignment: Text.AlignRight
+    }
+
+    Text {
+      id: radarCost
+      width: Style.space(66)
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      text: radarRow.recommendation ? Model.formatMoney(radarRow.recommendation.costUSD) : "—"
+      color: radarRow.recommendation && radarRow.recommendation.costUSD !== null ? root.accent : root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+      font.bold: true
+      horizontalAlignment: Text.AlignRight
+    }
+  }
+
+  component RadarRecommendationGroup: Column {
+    id: radarGroup
+    property var recommendationGroup: null
+
+    width: parent ? parent.width : 0
+    spacing: 0
+
+    Item {
+      width: parent.width
+      implicitHeight: Math.max(radarGroupTitle.implicitHeight, radarRule.implicitHeight)
+        + Style.space(10)
+
+      Text {
+        id: radarGroupTitle
+        anchors.left: parent.left
+        anchors.right: radarRule.left
+        anchors.rightMargin: Style.space(10)
+        anchors.verticalCenter: parent.verticalCenter
+        text: radarGroup.recommendationGroup ? radarGroup.recommendationGroup.title : ""
+        color: root.foreground
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.title
+        font.bold: true
+        elide: Text.ElideRight
+      }
+
+      Rectangle {
+        id: radarRule
+        width: Style.space(20)
+        height: width
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        radius: width / 2
+        color: ruleMouse.containsMouse ? root.alpha(root.accent, 0.18) : "transparent"
+        border.width: 1
+        border.color: ruleMouse.containsMouse ? root.accent : root.alpha(root.foreground, 0.36)
+
+        Text {
+          anchors.centerIn: parent
+          text: "i"
+          color: ruleMouse.containsMouse ? root.accent : root.dim
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
+
+        MouseArea {
+          id: ruleMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.WhatsThisCursor
+        }
+
+        ToolTip.visible: ruleMouse.containsMouse && radarGroup.recommendationGroup
+          && radarGroup.recommendationGroup.rule !== ""
+        ToolTip.text: radarGroup.recommendationGroup ? radarGroup.recommendationGroup.rule : ""
+        ToolTip.delay: 300
+      }
+    }
+
+    Item {
+      width: parent.width
+      implicitHeight: radarColumnModel.implicitHeight + Style.space(9)
+
+      Text {
+        id: radarColumnModel
+        anchors.left: parent.left
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Style.space(5)
+        text: "MODEL / EFFORT"
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
+      }
+      Text {
+        width: Style.space(42)
+        anchors.right: radarColumnDuration.left
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Style.space(5)
+        text: "IQ"
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
+        horizontalAlignment: Text.AlignRight
+      }
+      Text {
+        id: radarColumnDuration
+        width: Style.space(60)
+        anchors.right: radarColumnCost.left
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Style.space(5)
+        text: "TIME"
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
+        horizontalAlignment: Text.AlignRight
+      }
+      Text {
+        id: radarColumnCost
+        width: Style.space(66)
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Style.space(5)
+        text: "COST"
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
+        horizontalAlignment: Text.AlignRight
+      }
+    }
+
+    PanelSeparator { width: parent.width; foreground: root.foreground }
+
+    Repeater {
+      model: radarGroup.recommendationGroup ? radarGroup.recommendationGroup.items : []
+
+      Column {
+        required property var modelData
+        required property int index
+        width: parent.width
+
+        RadarMetricRow {
+          width: parent.width
+          recommendation: modelData
+        }
+
+        PanelSeparator {
+          visible: radarGroup.recommendationGroup
+            && index < radarGroup.recommendationGroup.items.length - 1
+          width: parent.width
+          foreground: root.foreground
+        }
+      }
+    }
+  }
+
+  component OverviewRadarPickCell: Rectangle {
+    id: overviewPickCell
+    property string category: ""
+    property var recommendation: null
+
+    visible: recommendation !== null
+    implicitHeight: overviewPickText.implicitHeight + Style.space(8)
+    radius: Style.cornerRadius
+    color: overviewPickMouse.containsMouse ? root.alpha(root.foreground, 0.07) : "transparent"
+
+    Text {
+      id: overviewPickText
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.leftMargin: Style.space(4)
+      anchors.rightMargin: Style.space(4)
+      anchors.verticalCenter: parent.verticalCenter
+      text: overviewPickCell.recommendation
+        ? overviewPickCell.category.toUpperCase() + " · " + overviewPickCell.recommendation.label + " · IQ "
+          + (overviewPickCell.recommendation.iq === null ? "—" : Math.round(overviewPickCell.recommendation.iq))
+        : ""
+      color: root.foreground
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      font.bold: true
+      elide: Text.ElideRight
+    }
+
+    MouseArea {
+      id: overviewPickMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: root.selectedViewId = "radar"
+    }
+  }
+
+  Component {
+    id: radarContent
+
+    Column {
+      width: parent ? parent.width : 0
+      spacing: Style.space(10)
+
+      Text {
+        visible: radarService.groups.length > 0
+        width: parent.width
+        text: "Data from Codex Radar · codexradar.com"
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        horizontalAlignment: Text.AlignRight
+        elide: Text.ElideLeft
+      }
+
+      Repeater {
+        model: radarService.groups
+
+        Column {
+          required property var modelData
+          required property int index
+          width: parent.width
+          spacing: Style.space(10)
+
+          RadarRecommendationGroup {
+            width: parent.width
+            recommendationGroup: modelData
+          }
+
+          PanelSeparator {
+            visible: index < radarService.groups.length - 1
+            width: parent.width
+            foreground: root.foreground
+          }
+        }
+      }
+
+      Text {
+        visible: radarService.groups.length === 0
+        width: parent.width
+        topPadding: Style.space(28)
+        bottomPadding: Style.space(28)
+        text: radarService.refreshing
+          ? "Loading model recommendations…"
+          : (radarService.status === "error"
+            ? "Recommendations are unavailable. Check the network, then retry."
+            : "No model recommendations are available right now.")
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
+      }
+    }
+  }
+
   Component {
     id: overviewContent
 
@@ -1084,6 +1478,29 @@ Panel {
             font.pixelSize: Style.font.caption
             horizontalAlignment: Text.AlignRight
           }
+        }
+      }
+
+      Row {
+        id: overviewRadarPicks
+        visible: root.dailyDevelopmentPick !== null || root.hardProblemsPick !== null
+        width: parent.width
+        spacing: Style.space(8)
+
+        OverviewRadarPickCell {
+          width: root.hardProblemsPick !== null
+            ? (overviewRadarPicks.width - overviewRadarPicks.spacing) / 2
+            : overviewRadarPicks.width
+          category: "Daily"
+          recommendation: root.dailyDevelopmentPick
+        }
+
+        OverviewRadarPickCell {
+          width: root.dailyDevelopmentPick !== null
+            ? (overviewRadarPicks.width - overviewRadarPicks.spacing) / 2
+            : overviewRadarPicks.width
+          category: "Hard"
+          recommendation: root.hardProblemsPick
         }
       }
 

@@ -456,6 +456,17 @@ Panel {
               opacity: enabled ? 1 : 0.55
               onClicked: service.refreshNow()
             }
+
+            Button {
+              width: parent.width
+              text: "Exit panel"
+              bordered: true
+              foreground: root.foreground
+              accent: root.accent
+              fontFamily: root.fontFamily
+              fontSize: Style.font.bodySmall
+              onClicked: root.close()
+            }
           }
         }
       }
@@ -896,9 +907,11 @@ Panel {
             spacing: Style.space(2)
 
             PanelSectionHeader {
+              width: parent.width
               text: "30 DAYS"
               foreground: root.foreground
               fontFamily: root.fontFamily
+              horizontalAlignment: Text.AlignRight
             }
             Text {
               width: parent.width

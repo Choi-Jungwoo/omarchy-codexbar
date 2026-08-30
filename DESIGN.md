@@ -62,7 +62,7 @@ CodexBar 是 Omarchy 桌面中的紧凑原生仪表，而不是独立应用或�
 
 CodexBar 以现有 Omarchy 右侧区域 `BarIconButton` 为入口；它不是一条独立 bar。点击入口打开锚定于该按钮的 `KeyboardPanel`。弹层的原生目标几何为 380×640 逻辑像素（`Style.space(380)` × `Style.space(640)`），超出高度时只在内容区垂直滚动。
 
-首屏顺序固定为：连续动态分段轨道、细分隔线、30 天标题与服务状态、可选状态/错误提示、30 天总支出及覆盖摘要、提供商列表、细分隔线、更新时间与当前成本、全宽刷新按钮。主要纵向节奏由 `Style.space(12)` 建立，列表与页脚内部使用更紧凑的 7–10 个 style-space 单位。
+首屏顺序固定为：连续动态分段轨道、细分隔线、30 天标题与服务状态、可选状态/错误提示、30 天总支出及覆盖摘要、提供商列表、细分隔线、更新时间与当前成本、刷新与退出面板按钮。主要纵向节奏由 `Style.space(12)` 建立，列表与页脚内部使用更紧凑的 7–10 个 style-space 单位。
 
 分段轨道始终是一整块连续边框表面：Overview 固定在首位，随后只出现服务成功返回的真实提供商。每段最小宽度为 `Style.space(84)`，轨道高度为 `Style.space(34)`；提供商过多时轨道水平滚动，不压缩到不可读。
 
@@ -116,7 +116,7 @@ Overview 将 Codex 固定在首位，方便发现唯一的悬停展开入口；�
 ### Codex Inline Expansion
 
 - 只有 provider id 为 `codex` 的行能够内联展开，且只由该行鼠标 hover 或键盘游标命中触发；面板打开本身不自动展开。
-- 展开后显示账号/套餐、各窗口非空的 pace summary、reset credits、当前成本与 token、30 天成本与 token，以及最多最近 7 条日成本/日 token 柱。
+- 展开后显示账号/套餐、各窗口非空的 pace summary、reset credits、当前成本与 token、30 天成本与 token，以及最多最近 7 条日成本/日 token 柱。右侧 `30 DAYS` 节标题与其金额、token 统一右对齐。
 - Reset credits 以 `availableCount` 显示可用次数；若后端只返回 credits 数组则以数组长度回退。到期文案取可用 credit 中最早的 `expiresAt`，没有可用到期时间时不显示该行。
 
 ### Provider Detail
@@ -134,7 +134,7 @@ Overview 将 Codex 固定在首位，方便发现唯一的悬停展开入口；�
 
 - 左右方向键循环切换 Overview/提供商；Overview 中上下键移动提供商游标，落到 Codex 时提供与悬停等价的展开状态；详情中上下键按 `Style.space(56)` 滚动。
 - Enter/激活键在 Overview 打开当前提供商，在详情触发刷新；Escape 关闭；Tab/Shift+Tab 交给宿主切换面板。
-- `R` 刷新，`O` 返回 Overview。鼠标支持分段点击、Provider Ledger 行悬停/点击、滚轮/拖动滚动、Retry 与 Refresh 按钮。
+- `R` 刷新，`O` 返回 Overview。鼠标支持分段点击、Provider Ledger 行悬停/点击、滚轮/拖动滚动、Retry、Refresh 与 Exit panel 按钮；Exit panel 只关闭弹层。
 
 ## Do's and Don'ts
 

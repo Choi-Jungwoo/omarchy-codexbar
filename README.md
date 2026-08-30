@@ -20,9 +20,32 @@
 
 默认端口 `8080` 来自当前 `codexbar serve` 的实际默认行为，可在插件设置中调整。端口、刷新间隔和请求超时都通过 manifest 暴露，不写入用户的 Omarchy 配置。
 
-## 本地加载
+## 安装
 
 要求系统中已安装 Omarchy 和 `codexbar`。
+
+当前 GitHub 仓库是私有仓库，先让 Git 使用 GitHub CLI 的登录凭据：
+
+```bash
+gh auth login
+gh auth setup-git
+```
+
+然后从 GitHub 安装并启用插件：
+
+```bash
+omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable --yes
+```
+
+插件会按 manifest 的 `defaultSection: right` 出现在 Omarchy 顶栏右侧。更新已安装版本：
+
+```bash
+omarchy plugin update community.codexbar --yes
+```
+
+## 本地开发加载
+
+在仓库目录中执行：
 
 ```bash
 cd /path/to/omarchy-codexbar

@@ -122,7 +122,8 @@ Overview 将 Codex 固定在首位，方便发现唯一的悬停展开入口；�
 ### Provider Detail
 
 - 展示该提供商返回的全部有效限制窗口，并对每个窗口显示剩余比例、已用比例、重置时间和可用的 pace 摘要与动态预计剩余刻度；无 pace summary 或 `expectedUsedPercent` 时分别省略文案或刻度。
-- 积分、当前/今日或会话成本、token、最近 30 天成本仅在字段存在时出现；缺失字段使用破折号或省略整个可选区域，不伪造数据。
+- Codex 独立页与 Overview 悬停详情保持信息对等：显示打码账号/套餐、reset credits 剩余次数与最早截止时间、当前成本、30 天成本和最近日历史。若服务未返回 reset credits，保留该节并明确显示 unavailable，不伪造数据。
+- 积分、当前/今日或会话成本、token、最近 30 天成本及日历史仅在字段存在时出现；缺失字段使用破折号或省略整个可选区域，不伪造数据。
 
 ### Service and Recovery States
 

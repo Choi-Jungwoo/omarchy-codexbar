@@ -1156,6 +1156,52 @@ Panel {
       width: parent ? parent.width : 0
       spacing: Style.space(12)
       readonly property var provider: root.selectedProvider
+      readonly property bool isCodex: provider && provider.providerId === "codex"
+
+      Column {
+        visible: detail.isCodex
+        width: parent.width
+        spacing: Style.space(7)
+
+        PanelSectionHeader {
+          text: "ACCOUNT"
+          foreground: root.foreground
+          fontFamily: root.fontFamily
+        }
+
+        Item {
+          width: parent.width
+          implicitHeight: Math.max(detailAccount.implicitHeight, detailPlan.implicitHeight)
+
+          Text {
+            id: detailAccount
+            anchors.left: parent.left
+            anchors.right: detailPlan.left
+            anchors.rightMargin: Style.space(12)
+            text: detail.provider && detail.provider.accountLabel !== ""
+              ? detail.provider.accountLabel
+              : "Account unavailable"
+            color: detail.provider && detail.provider.accountLabel !== "" ? root.foreground : root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            elide: Text.ElideRight
+          }
+
+          Text {
+            id: detailPlan
+            anchors.right: parent.right
+            text: detail.provider ? detail.provider.planLabel : ""
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+        }
+      }
+
+      PanelSeparator {
+        visible: detail.isCodex && detail.provider.windows.length > 0
+        foreground: root.foreground
+      }
 
       Column {
         visible: detail.provider && detail.provider.windows.length > 0
@@ -1185,7 +1231,68 @@ Panel {
       }
 
       PanelSeparator {
-        visible: detail.provider && (!!detail.provider.credits || !!detail.provider.cost)
+        visible: detail.provider && (detail.isCodex || !!detail.provider.credits || !!detail.provider.cost)
+        foreground: root.foreground
+      }
+
+      Column {
+        visible: detail.isCodex
+        width: parent.width
+        spacing: Style.space(7)
+
+        PanelSectionHeader {
+          text: "RESET CREDITS"
+          foreground: root.foreground
+          fontFamily: root.fontFamily
+        }
+
+        Item {
+          visible: detail.provider && !!detail.provider.resetCredits
+          width: parent.width
+          implicitHeight: Math.max(detailCreditCount.implicitHeight, detailCreditExpiry.implicitHeight)
+
+          Text {
+            id: detailCreditCount
+            anchors.left: parent.left
+            text: detail.provider && detail.provider.resetCredits
+              ? Math.round(detail.provider.resetCredits.availableCount) + " available"
+              : ""
+            color: root.foreground
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            font.bold: true
+          }
+
+          Text {
+            id: detailCreditExpiry
+            anchors.left: detailCreditCount.right
+            anchors.right: parent.right
+            anchors.leftMargin: Style.space(12)
+            text: detail.provider && detail.provider.resetCredits
+              && detail.provider.resetCredits.expiresAt !== ""
+              ? Model.expiryLabel(detail.provider.resetCredits.expiresAt, root.nowMs)
+              : ""
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            horizontalAlignment: Text.AlignRight
+            elide: Text.ElideLeft
+          }
+        }
+
+        Text {
+          visible: detail.provider && !detail.provider.resetCredits
+          width: parent.width
+          text: "Reset-credit data is unavailable."
+          color: root.dim
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          wrapMode: Text.WordWrap
+        }
+      }
+
+      PanelSeparator {
+        visible: detail.isCodex && detail.provider && (!!detail.provider.credits || !!detail.provider.cost)
         foreground: root.foreground
       }
 
@@ -1207,6 +1314,11 @@ Panel {
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
         }
+      }
+
+      PanelSeparator {
+        visible: detail.provider && !!detail.provider.credits && !!detail.provider.cost
+        foreground: root.foreground
       }
 
       Column {
@@ -1266,6 +1378,23 @@ Panel {
             color: root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
+          }
+        }
+
+        Column {
+          visible: detail.provider && detail.provider.cost && detail.provider.cost.daily.length > 0
+          width: parent.width
+          spacing: Style.space(5)
+
+          PanelSectionHeader {
+            text: "DAILY HISTORY"
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+          }
+
+          DailyCostChart {
+            width: parent.width
+            days: detail.provider && detail.provider.cost ? detail.provider.cost.daily : []
           }
         }
       }

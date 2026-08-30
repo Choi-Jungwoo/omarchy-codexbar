@@ -139,7 +139,7 @@ Panel {
 
   onProvidersChanged: ensureSelection()
   onOpenedChanged: if (opened) {
-    selectedViewId = "overview"
+    ensureSelection()
     queueCursor = 0
     cursorActive = false
     keyboardCursorActive = false

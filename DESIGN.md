@@ -68,7 +68,7 @@ CodexBar 以现有 Omarchy 右侧区域 `BarIconButton` 为入口；它不是一
 
 Overview 将 Codex 固定在首位，方便发现唯一的悬停展开入口；其余提供商保持由最紧张窗口决定的服务模型顺序。每行紧凑展示全部真实配额窗口的剩余比例、重置时间和服务提供时的动态 pace 刻度。Codex 在悬停或键盘游标落入时内联增加账号、套餐、pace 摘要、reset credits、当前成本、30 天成本和最多 7 个日历史柱；其他提供商不会因悬停膨胀。进入独立提供商页后仍展示该提供商的完整数据。
 
-**The Overview-First Rule.** 每次打开都进入 Overview；提供商标签和列表只来自服务成功记录，不为未配置的提供商保留空位置。
+**The Remembered-View Rule.** Shell 启动后首次打开进入 Overview；同一 Shell 会话内重新打开时恢复上次选中的 Overview/提供商面板。已记忆的提供商不再存在时回退 Overview；提供商标签和列表只来自服务成功记录，不为未配置的提供商保留空位置。
 
 ## Elevation & Depth
 
@@ -91,7 +91,7 @@ Overview 将 Codex 固定在首位，方便发现唯一的悬停展开入口；�
 ### KeyboardPanel
 
 - 锚定 Bar Entry，继承宿主 bar、弹层尺寸计算、焦点管理和跨面板切换行为。
-- 打开时总是回到 Overview、Provider Ledger 首行和滚动顶部，并立即请求刷新。
+- 打开时恢复上次选中的面板，将 Provider Ledger 游标和内容滚动复位到顶部，并立即请求刷新。
 - 内容区使用止于边界的 `Flickable`；只在内容超过视口时显示滚动条。
 
 ### Provider Segment Track
@@ -142,7 +142,7 @@ Overview 将 Codex 固定在首位，方便发现唯一的悬停展开入口；�
 ### Do:
 
 - **Do** 从 Omarchy 的 `Color`、`Style`、`Border` 和现成 Ui 组件继承视觉与交互。
-- **Do** 默认显示 30 天 Overview，并只为服务成功记录生成提供商分段与列表项。
+- **Do** 首次打开默认显示 30 天 Overview，后续打开恢复上次有效面板，并只为服务成功记录生成提供商分段与列表项。
 - **Do** 在 380×640 逻辑视口中优先保证 30 天摘要、剩余额度、重置时间、Codex 详情、更新时间和刷新可扫描。
 - **Do** 对缺失字段、短暂断线和刷新失败采取防御性呈现，并保留最后一次可用数据。
 - **Do** 同时维持完整的鼠标与键盘路径。

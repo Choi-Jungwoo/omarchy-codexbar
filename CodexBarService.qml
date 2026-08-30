@@ -8,7 +8,7 @@ Item {
   property var settings: ({})
 
   readonly property string host: "127.0.0.1"
-  readonly property int port: boundedSetting("serverPort", 8080, 1, 65535)
+  readonly property int port: boundedSetting("serverPort", 49273, 1, 65535)
   readonly property int requestTimeoutSec: boundedSetting("requestTimeoutSec", 8, 2, 60)
   readonly property int refreshIntervalSec: boundedSetting("refreshIntervalSec", 60, 30, 3600)
   readonly property int serviceRefreshIntervalSec: boundedSetting("serviceRefreshIntervalSec", 300, 30, 3600)

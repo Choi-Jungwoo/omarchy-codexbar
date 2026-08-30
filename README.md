@@ -7,6 +7,14 @@
 
 An open-source system tray plugin for Omarchy. It reads AI provider usage, remaining quotas, reset times, and costs from the local `codexbar serve` API provided by [CodexBar](https://github.com/steipete/CodexBar), and presents [Codex Radar](https://codexradar.com/) model recommendations in a dedicated Radar tab.
 
+## Screenshots
+
+<p align="center">
+  <a href="docs/images/overview.png"><img src="docs/images/overview.png" alt="Overview with expanded Codex usage" width="32%"></a>
+  <a href="docs/images/codex-details.png"><img src="docs/images/codex-details.png" alt="Codex provider details" width="32%"></a>
+  <a href="docs/images/radar.png"><img src="docs/images/radar.png" alt="Codex Radar recommendations" width="32%"></a>
+</p>
+
 ## Features
 
 - Opens on Overview by default and remembers the last selected tab within the current Shell session.

@@ -7,6 +7,14 @@
 
 一个面向 Omarchy 的开源系统托盘插件。它通过 [CodexBar](https://github.com/steipete/CodexBar) 提供的本机 `codexbar serve` 接口展示 AI 提供商用量、剩余额度、重置时间与成本，并在独立 Radar 标签中呈现 [Codex Radar](https://codexradar.com/) 的模型推荐。
 
+## 界面预览
+
+<p align="center">
+  <a href="docs/images/overview.png"><img src="docs/images/overview.png" alt="展开 Codex 用量的 Overview" width="32%"></a>
+  <a href="docs/images/codex-details.png"><img src="docs/images/codex-details.png" alt="Codex 提供商详情" width="32%"></a>
+  <a href="docs/images/radar.png"><img src="docs/images/radar.png" alt="Codex Radar 模型推荐" width="32%"></a>
+</p>
+
 ## 功能
 
 - 默认打开 Overview，并在同一 Shell 会话内记住上次查看的标签。

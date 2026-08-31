@@ -36,6 +36,11 @@ Panel {
   readonly property var overviewProviders: Model.overviewProviders(providers)
   readonly property var overviewSummary: Model.last30DaysSummary(providers)
   readonly property var viewTabs: Model.viewTabs(providers)
+  readonly property var trayProvider: providers.length > 0 ? providers[0] : null
+  readonly property var trayWindow: trayProvider ? trayProvider.bindingWindow : null
+  readonly property string trayRemainingText: trayWindow
+    ? Model.formatPercent(trayWindow.remainingPercent)
+    : ""
   readonly property var dailyDevelopmentPick: firstRadarPick("daily_development", radarService.groups)
   readonly property var hardProblemsPick: firstRadarPick("hard_problems", radarService.groups)
   readonly property bool hasCodex: providerForId("codex") !== null
@@ -47,9 +52,13 @@ Panel {
 
   readonly property var selectedProvider: providerForId(selectedViewId)
   readonly property bool radarSelected: selectedViewId === "radar"
-  readonly property bool alarming: providers.length > 0 && providers[0].bindingWindow
-    && providers[0].bindingWindow.usedPercent >= 90
+  readonly property bool alarming: !!trayWindow && trayWindow.usedPercent >= 90
   readonly property bool failed: service.status === "error"
+  readonly property string trayTooltipText: {
+    if (failed) return "CodexBar · connection failed"
+    if (trayRemainingText === "") return "CodexBar · provider usage"
+    return "CodexBar · " + trayProvider.providerName + " · " + trayRemainingText + " left"
+  }
   readonly property bool viewFailed: radarSelected ? radarService.status === "error" : failed
   readonly property bool viewRefreshing: radarSelected ? radarService.refreshing : service.refreshing
   readonly property string footerCost: Model.costSummary(providers)
@@ -250,13 +259,43 @@ Panel {
     function radar(): string { root.selectedViewId = "radar"; return "ok" }
   }
 
-  BarIconButton {
+  WidgetButton {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "󱚣"
-    tooltipText: root.failed ? "CodexBar · connection failed" : "CodexBar · provider usage"
+    labelVisible: false
+    hasVisualContent: true
+    horizontalMargin: 6
+    fixedWidth: vertical ? -1 : trayContent.implicitWidth + scaledHorizontalMargin * 2
+    fixedHeight: vertical ? Style.bar.iconSlot : -1
+    tooltipText: root.trayTooltipText
     active: root.failed || root.alarming
+
+    Row {
+      id: trayContent
+      anchors.centerIn: parent
+      spacing: trayRemaining.visible ? Style.spacing.labelGap : 0
+
+      Text {
+        text: "\ue905"
+        color: button.active && button.useActiveColor ? button.activeColor : button.foreground
+        font.family: "omarchy"
+        font.pixelSize: Style.bar.iconFont
+        renderType: Text.NativeRendering
+      }
+
+      Text {
+        id: trayRemaining
+        visible: root.trayRemainingText !== "" && !button.vertical
+        text: root.trayRemainingText
+        color: button.active && button.useActiveColor ? button.activeColor : button.foreground
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.bold: true
+        renderType: Text.NativeRendering
+      }
+    }
+
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.MiddleButton) service.refreshNow()
       else root.toggle()

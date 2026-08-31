@@ -18,6 +18,7 @@ An open-source system tray plugin for Omarchy. It reads AI provider usage, remai
 ## Features
 
 - Opens on Overview by default and remembers the last selected tab within the current Shell session.
+- Uses the Codex mark in the tray and shows the first (currently most constrained) provider's remaining percentage beside it on horizontal bars.
 - Shows only providers returned by `codexbar serve`, ordered as Overview, Codex, Radar, then other providers.
 - Aggregates 30-day cost and token totals, with compact Daily development and Hard problems recommendations and IQ scores.
 - Uses every quota bar to represent **remaining capacity**, including a dynamic expected-remaining marker when provided by the service.

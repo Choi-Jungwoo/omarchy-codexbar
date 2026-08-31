@@ -86,7 +86,7 @@ Overview 在 30 天总价数字正下方以同一行两个无分隔 compact cell
 
 ### Bar Entry
 
-- 使用宿主已有右侧区域的 `BarIconButton`，图标与 Tooltip 承担唯一入口；不得渲染第二条 bar 或独立悬浮入口。
+- 使用宿主已有右侧区域的 `WidgetButton`，以 Omarchy 内置 Codex 图标和首个（当前最紧张）提供商的剩余百分比承担唯一入口；无可用窗口或竖栏时只显示图标，不得渲染第二条 bar 或独立悬浮入口。
 - 普通点击切换弹层；中键直接刷新。
 - 服务失败或任一首要约束达到 90% 时进入 active 状态；失败时 Tooltip 明确为 connection failed。
 

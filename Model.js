@@ -164,6 +164,27 @@ function dailyCostRow(costRecord) {
   return null
 }
 
+function mostUsedModel(costRecord) {
+  var days = costRecord && Array.isArray(costRecord.daily) ? costRecord.daily : []
+  var totals = {}
+  var bestName = ""
+  var bestTokens = -1
+  for (var i = 0; i < days.length; i++) {
+    var models = Array.isArray(days[i] && days[i].modelBreakdowns) ? days[i].modelBreakdowns : []
+    for (var j = 0; j < models.length; j++) {
+      var name = nonEmpty(models[j] && models[j].modelName)
+      var tokens = numberOrNull(models[j] && models[j].totalTokens)
+      if (name === "" || tokens === null || tokens <= 0) continue
+      totals[name] = (totals[name] || 0) + tokens
+      if (totals[name] > bestTokens) {
+        bestName = name
+        bestTokens = totals[name]
+      }
+    }
+  }
+  return bestName
+}
+
 function normalizedCost(record) {
   if (!record || record.error) return null
   var today = dailyCostRow(record)
@@ -182,6 +203,7 @@ function normalizedCost(record) {
     sessionTokens: sessionTokens,
     last30DaysCostUSD: numberOrNull(record.last30DaysCostUSD),
     last30DaysTokens: numberOrNull(record.last30DaysTokens),
+    mostUsedModel: mostUsedModel(record),
     daily: normalizedDailyCosts(record),
     updatedAt: nonEmpty(record.updatedAt)
   }

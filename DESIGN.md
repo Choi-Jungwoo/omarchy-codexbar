@@ -68,7 +68,7 @@ CodexBar 以现有 Omarchy 右侧区域 `BarIconButton` 为入口；它不是一
 
 分段轨道始终是一整块连续边框表面，顺序固定为 Overview → Codex → Radar → 其他真实 provider；没有 Codex 时 Radar 紧跟 Overview。每段最小宽度为 `Style.space(84)`，轨道高度为 `Style.space(34)`；标签过多时轨道水平滚动，不压缩到不可读。
 
-Overview 在 30 天总价数字正下方以同一行两个无分隔 compact cells 展示 Daily 与 Hard 的首选模型、effort 和 IQ；任一 cell 点击后进入 Radar。随后将 Codex 固定在 provider 列表首位，方便发现唯一的悬停展开入口；其余 provider 保持由最紧张窗口决定的服务模型顺序。每行紧凑展示全部真实配额窗口的剩余比例、重置时间和服务提供时的动态 pace 刻度。Codex 在悬停或键盘游标落入时内联增加账号、套餐、pace 摘要、reset credits、当前成本、30 天成本和最多 7 个日历史柱；其他 provider 不会因悬停膨胀。进入独立 provider 页后仍展示该 provider 的完整数据。
+Overview 在 30 天总价数字正下方以同一行两个无分隔 compact cells 展示 Daily 与 Hard 的首选模型、effort 和 IQ；任一 cell 点击后进入 Radar。随后将 Codex 固定在 provider 列表首位，方便发现唯一的悬停展开入口；其余 provider 保持由最紧张窗口决定的服务模型顺序。每行紧凑展示全部真实配额窗口的剩余比例、重置时间和服务提供时的动态 pace 刻度。Codex 在悬停或键盘游标落入时内联增加账号、套餐、pace 摘要、reset credits、当前成本、30 天成本和最多 7 个日历史柱；其他 provider 不会因悬停膨胀。进入独立 provider 页后先展示最近 30 天按 token 计的最常用模型，再展示该 provider 的完整数据；模型 breakdown 缺失时明确显示 unavailable。
 
 **The Remembered-View Rule.** Shell 启动后首次打开进入 Overview；同一 Shell 会话内重新打开时恢复上次有效的 Overview、Codex、Radar 或其他 provider view。已记忆的 provider 不再存在时回退 Overview；provider 标签和列表只来自服务成功记录，不为未配置的 provider 保留空位置。
 
@@ -131,6 +131,7 @@ Overview 在 30 天总价数字正下方以同一行两个无分隔 compact cell
 
 ### Provider Detail
 
+- 顶部显示最近 30 天按 token 汇总的最常用模型；没有可靠的 model breakdown 时明确显示 unavailable，不从 Radar 推荐推断。
 - 展示该提供商返回的全部有效限制窗口，并对每个窗口显示剩余比例、已用比例、重置时间和可用的 pace 摘要与动态预计剩余刻度；无 pace summary 或 `expectedUsedPercent` 时分别省略文案或刻度。
 - Codex 独立页与 Overview 悬停详情保持信息对等：显示打码账号/套餐、reset credits 剩余次数与最早截止时间、当前成本、30 天成本和最近日历史。若服务未返回 reset credits，保留该节并明确显示 unavailable，不伪造数据。
 - 积分、当前/今日或会话成本、token、最近 30 天成本及日历史仅在字段存在时出现；缺失字段使用破折号或省略整个可选区域，不伪造数据。

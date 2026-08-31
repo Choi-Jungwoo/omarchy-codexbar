@@ -20,6 +20,7 @@
 - 默认打开 Overview，并在同一 Shell 会话内记住上次查看的标签。
 - 托盘入口使用 Codex 图标，并在水平栏中紧邻显示首个（当前最紧张）提供商的剩余百分比。
 - 只展示 `codexbar serve` 实际返回的提供商，固定顺序为 Overview、Codex、Radar、其他提供商。
+- 在每个提供商详情中显示最近 30 天按 token 数统计的最常用模型；成本 breakdown 不可用时明确提示。
 - 汇总最近 30 天成本与 token，并紧凑展示 Daily development 与 Hard problems 的推荐模型及 IQ。
 - 所有额度条均表示**剩余比例**，并显示服务提供的动态预计剩余刻度。
 - 百分比、重置倒计时、reset credits 次数和截止时间会随实时数值动态变色。

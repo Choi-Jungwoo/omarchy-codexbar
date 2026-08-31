@@ -1668,6 +1668,39 @@ Panel {
       spacing: Style.space(12)
       readonly property var provider: root.selectedProvider
       readonly property bool isCodex: provider && provider.providerId === "codex"
+      readonly property string mostUsedModel: provider && provider.cost
+        ? provider.cost.mostUsedModel
+        : ""
+
+      Item {
+        width: parent.width
+        implicitHeight: Math.max(mostUsedModelLabel.implicitHeight, mostUsedModelValue.implicitHeight)
+
+        PanelSectionHeader {
+          id: mostUsedModelLabel
+          anchors.left: parent.left
+          anchors.right: mostUsedModelValue.left
+          anchors.rightMargin: Style.space(12)
+          text: "MOST USED MODEL · 30D"
+          foreground: root.foreground
+          fontFamily: root.fontFamily
+        }
+
+        Text {
+          id: mostUsedModelValue
+          width: Math.min(parent.width * 0.58, implicitWidth)
+          anchors.right: parent.right
+          text: detail.mostUsedModel || "Unavailable"
+          color: detail.mostUsedModel ? root.foreground : root.dim
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          font.bold: !!detail.mostUsedModel
+          horizontalAlignment: Text.AlignRight
+          elide: Text.ElideLeft
+        }
+      }
+
+      PanelSeparator { foreground: root.foreground }
 
       Column {
         visible: detail.isCodex

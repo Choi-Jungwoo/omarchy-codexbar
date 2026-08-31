@@ -88,6 +88,26 @@ test("cost data merges by provider without creating providers", () => {
   assert.equal(Model.costSummary(providers), "Session $0.42 · 38K tokens")
 })
 
+test("the provider detail exposes the most-used 30-day model by token count", () => {
+  const providers = Model.normalizeProviders([
+    { provider: "codex", usage: { primary: { usedPercent: 25 } } }
+  ], [{
+    provider: "codex",
+    daily: [
+      { modelBreakdowns: [
+        { modelName: "gpt-5.6-sol", totalTokens: 90 },
+        { modelName: "codex-auto-review", totalTokens: 70 }
+      ] },
+      { modelBreakdowns: [
+        { modelName: "gpt-5.6-sol", totalTokens: 20 },
+        { modelName: "codex-auto-review", totalTokens: 50 }
+      ] }
+    ]
+  }])
+
+  assert.equal(providers[0].cost.mostUsedModel, "codex-auto-review")
+})
+
 test("30-day totals, account identity, reset credits, and daily costs stay available to the overview", () => {
   const today = new Date()
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`

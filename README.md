@@ -10,9 +10,9 @@ An open-source system tray plugin for Omarchy. It reads AI provider usage, remai
 ## Screenshots
 
 <p align="center">
-  <a href="screenshots/overview.png"><img src="screenshots/overview.png" alt="Overview with expanded Codex usage" width="31.3077%"></a>
-  <a href="screenshots/codex-details.png"><img src="screenshots/codex-details.png" alt="Codex provider details" width="32.1905%"></a>
-  <a href="screenshots/radar.png"><img src="screenshots/radar.png" alt="Codex Radar recommendations" width="32.5018%"></a>
+  <a href="screenshots/overview.png"><img src="screenshots/overview.png" alt="Overview with expanded Codex usage" width="31.0478%"></a>
+  <a href="screenshots/codex-details.png"><img src="screenshots/codex-details.png" alt="Codex provider details" width="32.3198%"></a>
+  <a href="screenshots/radar.png"><img src="screenshots/radar.png" alt="Codex Radar recommendations" width="32.6324%"></a>
 </p>
 
 ## Features

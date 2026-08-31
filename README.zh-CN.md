@@ -10,9 +10,9 @@
 ## 界面预览
 
 <p align="center">
-  <a href="screenshots/overview.png"><img src="screenshots/overview.png" alt="展开 Codex 用量的 Overview" width="31.3077%"></a>
-  <a href="screenshots/codex-details.png"><img src="screenshots/codex-details.png" alt="Codex 提供商详情" width="32.1905%"></a>
-  <a href="screenshots/radar.png"><img src="screenshots/radar.png" alt="Codex Radar 模型推荐" width="32.5018%"></a>
+  <a href="screenshots/overview.png"><img src="screenshots/overview.png" alt="展开 Codex 用量的 Overview" width="31.0478%"></a>
+  <a href="screenshots/codex-details.png"><img src="screenshots/codex-details.png" alt="Codex 提供商详情" width="32.3198%"></a>
+  <a href="screenshots/radar.png"><img src="screenshots/radar.png" alt="Codex Radar 模型推荐" width="32.6324%"></a>
 </p>
 
 ## 功能

@@ -86,6 +86,15 @@ Item {
     readinessTimer.restart()
   }
 
+  function installCli() {
+    if (_shuttingDown || installProcess.running) return
+    installProcess.command = [
+      "/usr/bin/env", "omarchy-launch-floating-terminal-with-presentation",
+      "yay -S --needed codexbar-cli"
+    ]
+    installProcess.running = true
+  }
+
   function acceptHealth(raw) {
     try {
       var health = JSON.parse(String(raw || ""))
@@ -187,6 +196,7 @@ Item {
     healthProcess.running = false
     usageProcess.running = false
     costProcess.running = false
+    installProcess.running = false
     if (ownsProcess && serveProcess.running) serveProcess.running = false
   }
 
@@ -247,6 +257,13 @@ Item {
       root.status = "error"
       reconnectTimer.restart()
     }
+  }
+
+  Process {
+    id: installProcess
+    running: false
+    command: []
+    onExited: root.probe()
   }
 
   Process {

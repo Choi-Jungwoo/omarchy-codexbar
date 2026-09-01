@@ -139,7 +139,7 @@ Overview 在 30 天总价数字正下方以同一行两个无分隔 compact cell
 ### Service and Recovery States
 
 - `stopped`、`starting`、`ready`、`error` 与 refreshing 映射为明确文案和状态点。
-- 找不到 `codexbar` CLI 时显示 “CLI REQUIRED” 与 “Install CLI”，按钮打开上游官方安装指南；安装完成后沿用现有重连机制自动恢复。
+- 找不到 `codexbar` CLI 时显示 “CLI REQUIRED” 与 “Install CLI”；按钮通过 Omarchy 浮动终端运行 `yay -S --needed codexbar-cli`，由用户在终端确认，安装完成后沿用现有重连机制自动恢复。
 - 错误且仍有缓存提供商时显示 “SHOWING LAST DATA”；没有缓存时显示 “CONNECTION FAILED”。错误提示保留可理解的原因与 Retry 动作。
 - Radar 刷新失败且有完整缓存时继续显示该缓存并标记 “SHOWING LAST DATA”；无缓存时显示 “RADAR UNAVAILABLE”。Radar 失败不改变 `codexbar serve` 的用量状态，反之亦然。
 - ready 但无有效提供商时显示 “NO ACTIVE PROVIDERS” 和可恢复空状态；刷新期间禁用按钮并展示旋转图标。

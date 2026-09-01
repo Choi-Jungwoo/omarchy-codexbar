@@ -174,7 +174,7 @@ Panel {
         return "Codex Radar returned no current recommendations. Refresh to check again."
       return ""
     }
-    if (service.cliMissing) return "CodexBar CLI is missing. Install it, then this panel will reconnect automatically."
+    if (service.cliMissing) return "CodexBar CLI is missing. Install it in a terminal; this panel will reconnect automatically."
     if (service.status === "starting") return "Waiting for the local CodexBar service…"
     if (service.status === "error") return service.lastError || "CodexBar is unavailable. Retry when the service is ready."
     if (providers.length === 0) return "CodexBar returned no usable provider records yet. Use a provider, then refresh."
@@ -505,10 +505,12 @@ Panel {
               fontFamily: root.fontFamily
               fontSize: Style.font.caption
               verticalPadding: Style.space(4)
+              tooltipText: !root.radarSelected && service.cliMissing
+                ? "Runs: yay -S --needed codexbar-cli"
+                : ""
               onClicked: {
                 if (root.radarSelected) radarService.refreshNow()
-                else if (service.cliMissing)
-                  Qt.openUrlExternally("https://github.com/steipete/CodexBar#cli-tarballs-macoslinux")
+                else if (service.cliMissing) service.installCli()
                 else service.probe()
               }
             }

@@ -49,6 +49,7 @@ If `codexbar` is missing, open the panel and click **Install CLI**, then confirm
 
 ```bash
 omarchy plugin update community.codexbar --yes
+omarchy restart shell
 ```
 
 ## Usage

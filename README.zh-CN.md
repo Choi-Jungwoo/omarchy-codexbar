@@ -49,6 +49,7 @@ omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable
 
 ```bash
 omarchy plugin update community.codexbar --yes
+omarchy restart shell
 ```
 
 ## 使用

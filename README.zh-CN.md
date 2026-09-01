@@ -43,38 +43,13 @@
 omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable --yes
 ```
 
-如果缺少 `codexbar`，打开面板并点击 **Install CLI**。Omarchy 会打开浮动终端运行以下命令；在终端中确认安装即可。CLI 可用后，面板会自动重连。
-
-```bash
-yay -S --needed codexbar-cli
-```
-
-也可以手动运行该命令。安装后可这样确认：
-
-```bash
-codexbar --version
-```
-
-插件会按 manifest 的 `defaultSection: right` 出现在 Omarchy 顶栏右侧。若安装后仍显示旧的 QML 实例，重启 Shell：
-
-```bash
-omarchy restart shell
-```
-
-在 `~/.config/hypr/bindings.lua` 中加入默认全局快捷键：
-
-```lua
-o.bind("F12", "CodexBar", "omarchy-shell shell toggle community.codexbar")
-```
+如果缺少 `codexbar`，打开面板并点击 **Install CLI**，然后在浮动终端中确认安装。CLI 可用后，面板会自动重连。
 
 ## 更新
 
 ```bash
 omarchy plugin update community.codexbar --yes
-omarchy restart shell
 ```
-
-第二条命令会重建已加载的 bar-widget，避免 Shell 继续保留更新前的 QML 组件。
 
 ## 使用
 
@@ -104,38 +79,6 @@ omarchy restart shell
 - 模型推荐来自 [Codex Radar](https://codexradar.com/)。Radar 请求与本机 CodexBar 服务相互独立，失败时会保留最后一次完整缓存。
 - 插件不会复制提供商鉴权逻辑，也不会在日志中输出令牌、凭据或完整敏感响应。
 - Codex Radar 的数据、API 和二次使用受其自身条款或授权要求约束；请在分发或商业使用前自行确认许可。
-
-## 本地开发
-
-```bash
-git clone https://github.com/Choi-Jungwoo/omarchy-codexbar.git
-cd omarchy-codexbar
-
-omarchy plugin validate .
-node --test tests/model.test.mjs
-```
-
-将当前工作区加载到 Omarchy：
-
-```bash
-PLUGIN_DIR="$HOME/.config/omarchy/plugins/community.codexbar"
-install -d "$PLUGIN_DIR"
-install -m 0644 manifest.json Panel.qml CodexBarService.qml CodexRadarService.qml Model.js "$PLUGIN_DIR/"
-
-omarchy plugin validate "$PLUGIN_DIR"
-omarchy-shell shell rescanPlugins
-omarchy plugin enable community.codexbar --section right
-```
-
-若热重载后界面没有变化，执行 `omarchy restart shell`。
-
-### 项目结构
-
-- `Panel.qml`：托盘入口、面板布局、状态呈现与交互。
-- `CodexBarService.qml`：本机服务生命周期、健康检查与请求协调。
-- `CodexRadarService.qml`：Radar 请求、完整性门槛与缓存降级。
-- `Model.js`：CodexBar/Radar 响应到稳定 QML 模型的转换。
-- `tests/model.test.mjs`：模型规范化、格式化与状态刻度测试。
 
 ## 贡献
 

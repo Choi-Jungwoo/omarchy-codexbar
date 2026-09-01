@@ -43,38 +43,13 @@ Install and enable the plugin:
 omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable --yes
 ```
 
-If `codexbar` is missing, open the panel and click **Install CLI**. Omarchy opens a floating terminal running the following command; confirm the installation there. The panel reconnects automatically when the CLI becomes available.
-
-```bash
-yay -S --needed codexbar-cli
-```
-
-You can also run that command manually. Confirm the result with:
-
-```bash
-codexbar --version
-```
-
-The manifest places the plugin in the right section of the Omarchy bar by default. If the Shell still displays an older QML instance after installation, restart it:
-
-```bash
-omarchy restart shell
-```
-
-Add the default global shortcut to `~/.config/hypr/bindings.lua`:
-
-```lua
-o.bind("F12", "CodexBar", "omarchy-shell shell toggle community.codexbar")
-```
+If `codexbar` is missing, open the panel and click **Install CLI**, then confirm the installation in the floating terminal. The panel reconnects automatically when the CLI becomes available.
 
 ## Updating
 
 ```bash
 omarchy plugin update community.codexbar --yes
-omarchy restart shell
 ```
-
-The second command rebuilds the loaded bar widget so the Shell does not retain the previous QML component.
 
 ## Usage
 
@@ -104,38 +79,6 @@ Plugin settings are declared in `manifest.json` and can be adjusted through Omar
 - Model recommendations come from [Codex Radar](https://codexradar.com/). Radar requests are independent from the local CodexBar service and retain the last complete cache on failure.
 - The plugin does not duplicate provider authentication logic and does not log tokens, credentials, or complete sensitive payloads.
 - Codex Radar data, APIs, and secondary use remain subject to its own terms or authorization requirements. Confirm permission before redistribution or commercial use.
-
-## Local Development
-
-```bash
-git clone https://github.com/Choi-Jungwoo/omarchy-codexbar.git
-cd omarchy-codexbar
-
-omarchy plugin validate .
-node --test tests/model.test.mjs
-```
-
-Load the current working tree into Omarchy:
-
-```bash
-PLUGIN_DIR="$HOME/.config/omarchy/plugins/community.codexbar"
-install -d "$PLUGIN_DIR"
-install -m 0644 manifest.json Panel.qml CodexBarService.qml CodexRadarService.qml Model.js "$PLUGIN_DIR/"
-
-omarchy plugin validate "$PLUGIN_DIR"
-omarchy-shell shell rescanPlugins
-omarchy plugin enable community.codexbar --section right
-```
-
-Run `omarchy restart shell` if the UI does not change after a hot reload.
-
-### Project Layout
-
-- `Panel.qml`: tray entry, panel layout, state presentation, and interaction.
-- `CodexBarService.qml`: local service lifecycle, health checks, and request coordination.
-- `CodexRadarService.qml`: Radar requests, completeness gate, and cache fallback.
-- `Model.js`: conversion of CodexBar and Radar responses into stable QML models.
-- `tests/model.test.mjs`: model normalization, formatting, and status-scale tests.
 
 ## Contributing
 

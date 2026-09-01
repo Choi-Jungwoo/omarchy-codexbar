@@ -32,27 +32,27 @@
 ## 要求
 
 - 已安装支持插件系统的 [Omarchy](https://omarchy.org/)。
-- 已安装 [CodexBar](https://github.com/steipete/CodexBar)，并确保 `codexbar` 命令位于 `PATH` 中。
+- [CodexBar CLI](https://github.com/steipete/CodexBar)，可提前手动安装，也可在缺失时从面板安装。
 - 如需 Radar 推荐，需要能够访问 [Codex Radar](https://codexradar.com/)。用量面板本身只依赖本机 CodexBar 服务。
 
 ## 安装
 
-先通过 AUR 安装 [CodexBar CLI](https://aur.archlinux.org/packages/codexbar-cli)：
-
-```bash
-yay -S codexbar-cli
-```
-
-确认 `codexbar` 已位于 `PATH`：
-
-```bash
-codexbar --version
-```
-
-然后安装并启用插件：
+安装并启用插件：
 
 ```bash
 omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable --yes
+```
+
+如果缺少 `codexbar`，打开面板并点击 **Install CLI**。Omarchy 会打开浮动终端运行以下命令；在终端中确认安装即可。CLI 可用后，面板会自动重连。
+
+```bash
+yay -S --needed codexbar-cli
+```
+
+也可以手动运行该命令。安装后可这样确认：
+
+```bash
+codexbar --version
 ```
 
 插件会按 manifest 的 `defaultSection: right` 出现在 Omarchy 顶栏右侧。若安装后仍显示旧的 QML 实例，重启 Shell：

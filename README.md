@@ -32,27 +32,27 @@ An open-source system tray plugin for Omarchy. It reads AI provider usage, remai
 ## Requirements
 
 - [Omarchy](https://omarchy.org/) with plugin support.
-- [CodexBar](https://github.com/steipete/CodexBar), with the `codexbar` command available on `PATH`.
+- [CodexBar CLI](https://github.com/steipete/CodexBar), installed manually or from the panel when missing.
 - Network access to [Codex Radar](https://codexradar.com/) for model recommendations. The usage panel itself only requires the local CodexBar service.
 
 ## Installation
 
-Install [CodexBar CLI](https://aur.archlinux.org/packages/codexbar-cli) from the AUR:
-
-```bash
-yay -S codexbar-cli
-```
-
-Confirm that `codexbar` is available on `PATH`:
-
-```bash
-codexbar --version
-```
-
-Then install and enable the plugin:
+Install and enable the plugin:
 
 ```bash
 omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable --yes
+```
+
+If `codexbar` is missing, open the panel and click **Install CLI**. Omarchy opens a floating terminal running the following command; confirm the installation there. The panel reconnects automatically when the CLI becomes available.
+
+```bash
+yay -S --needed codexbar-cli
+```
+
+You can also run that command manually. Confirm the result with:
+
+```bash
+codexbar --version
 ```
 
 The manifest places the plugin in the right section of the Omarchy bar by default. If the Shell still displays an older QML instance after installation, restart it:

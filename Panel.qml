@@ -53,8 +53,9 @@ Panel {
   readonly property var selectedProvider: providerForId(selectedViewId)
   readonly property bool radarSelected: selectedViewId === "radar"
   readonly property bool alarming: !!trayWindow && trayWindow.usedPercent >= 90
-  readonly property bool failed: service.status === "error"
+  readonly property bool failed: service.status === "error" || service.cliMissing
   readonly property string trayTooltipText: {
+    if (service.cliMissing) return "CodexBar · CLI required"
     if (failed) return "CodexBar · connection failed"
     if (trayRemainingText === "") return "CodexBar · provider usage"
     return "CodexBar · " + trayProvider.providerName + " · " + trayRemainingText + " left"
@@ -149,6 +150,7 @@ Panel {
       if (radarService.groups.length === 0) return "NO RECOMMENDATIONS"
       return radarService.groups.length + (radarService.groups.length === 1 ? " GROUP READY" : " GROUPS READY")
     }
+    if (service.cliMissing) return "CLI REQUIRED"
     if (service.status === "stopped") return "SERVICE STOPPED"
     if (service.status === "starting") return "CONNECTING"
     if (service.status === "error") return providers.length > 0 ? "SHOWING LAST DATA" : "CONNECTION FAILED"
@@ -172,6 +174,7 @@ Panel {
         return "Codex Radar returned no current recommendations. Refresh to check again."
       return ""
     }
+    if (service.cliMissing) return "CodexBar CLI is missing. Install it, then this panel will reconnect automatically."
     if (service.status === "starting") return "Waiting for the local CodexBar service…"
     if (service.status === "error") return service.lastError || "CodexBar is unavailable. Retry when the service is ready."
     if (providers.length === 0) return "CodexBar returned no usable provider records yet. Use a provider, then refresh."
@@ -495,14 +498,19 @@ Panel {
               anchors.right: parent.right
               anchors.rightMargin: Style.space(6)
               anchors.verticalCenter: parent.verticalCenter
-              text: "Retry"
+              text: !root.radarSelected && service.cliMissing ? "Install CLI" : "Retry"
               bordered: true
               foreground: root.foreground
               accent: root.accent
               fontFamily: root.fontFamily
               fontSize: Style.font.caption
               verticalPadding: Style.space(4)
-              onClicked: root.radarSelected ? radarService.refreshNow() : service.probe()
+              onClicked: {
+                if (root.radarSelected) radarService.refreshNow()
+                else if (service.cliMissing)
+                  Qt.openUrlExternally("https://github.com/steipete/CodexBar#cli-tarballs-macoslinux")
+                else service.probe()
+              }
             }
           }
 

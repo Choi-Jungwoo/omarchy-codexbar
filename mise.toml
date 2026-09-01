@@ -1,0 +1,14 @@
+[tools]
+node = "26.8.1"
+rust = "latest"
+uv = "latest"
+
+[tasks.test]
+run = "node --test tests/model.test.mjs"
+
+[tasks.validate]
+run = "omarchy plugin validate ."
+
+[tasks.check]
+depends = ["test", "validate"]
+run = "git diff --check"

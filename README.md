@@ -27,6 +27,7 @@ An open-source system tray plugin for Omarchy. It reads AI provider usage, remai
 - Expands the Codex row on hover to show the masked account, plan, quota windows, pace, reset credits, cost, and recent daily history.
 - Keeps the tab rail and update controls fixed while the middle content scrolls; supports both mouse and keyboard input.
 - Handles service startup, reconnection, errors, empty states, and Radar cache fallback explicitly.
+- When the `codexbar` CLI is missing, offers a one-click link to the official installation guide and reconnects automatically after installation.
 
 ## Requirements
 

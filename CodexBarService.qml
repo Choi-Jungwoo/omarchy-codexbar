@@ -20,6 +20,7 @@ Item {
   property string costError: ""
   property string serverVersion: ""
   property bool ownsProcess: false
+  property bool cliMissing: false
   property bool refreshing: false
   property var providers: []
   property var usagePayload: []
@@ -73,7 +74,7 @@ Item {
     _serveError = ""
     ownsProcess = true
     serveProcess.command = [
-      "codexbar", "serve",
+      "/usr/bin/env", "codexbar", "serve",
       "--host", host,
       "--port", String(port),
       "--refresh-interval", String(serviceRefreshIntervalSec),
@@ -90,8 +91,9 @@ Item {
       var health = JSON.parse(String(raw || ""))
       if (!health || health.status !== "ok") return false
       serverVersion = String(health.version || "")
-      status = "ready"
       lastError = ""
+      cliMissing = false
+      status = "ready"
       reconnectTimer.stop()
       refreshNow()
       return true
@@ -237,11 +239,13 @@ Item {
       var expected = root._shuttingDown
       root.ownsProcess = false
       if (expected) return
-      root.status = "error"
-      root.lastError = root.conciseError(root._serveError, exitCode === 127
+      readinessTimer.stop()
+      root.cliMissing = exitCode === 127
+      root.lastError = root.conciseError(root._serveError, root.cliMissing
         ? "codexbar is not installed or is not on PATH"
         : "CodexBar service stopped unexpectedly")
-      root.reconnectTimer.restart()
+      root.status = "error"
+      reconnectTimer.restart()
     }
   }
 
@@ -257,7 +261,7 @@ Item {
       else {
         root.status = "error"
         root.lastError = root.conciseError(usageStderr.text, "Could not read CodexBar usage")
-        root.reconnectTimer.restart()
+        reconnectTimer.restart()
       }
       root.finishRefreshPart()
     }

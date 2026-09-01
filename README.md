@@ -60,6 +60,12 @@ The manifest places the plugin in the right section of the Omarchy bar by defaul
 omarchy restart shell
 ```
 
+Add the default global shortcut to `~/.config/hypr/bindings.lua`:
+
+```lua
+o.bind("F12", "CodexBar", "omarchy-shell shell toggle community.codexbar")
+```
+
 ## Updating
 
 ```bash
@@ -71,6 +77,7 @@ The second command rebuilds the loaded bar widget so the Shell does not retain t
 
 ## Usage
 
+- `F12`: open or close the panel globally.
 - Click the tray icon: open or close the panel.
 - Middle-click the tray icon: refresh the current data.
 - `←` / `→` or `H` / `L`: switch tabs.

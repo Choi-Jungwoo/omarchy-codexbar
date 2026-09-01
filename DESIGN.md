@@ -145,6 +145,7 @@ Overview 在 30 天总价数字正下方以同一行两个无分隔 compact cell
 
 ### Input Behavior
 
+- 宿主 Hyprland 默认用 `F12` 调用 `omarchy-shell shell toggle community.codexbar`，从任意应用切换同一个 Bar Entry 面板；插件不另建全局监听器。
 - 左右方向键按 Overview → Codex → Radar → 其他 provider 的顺序循环切换；Overview 中上下键移动 provider 游标，落到 Codex 时提供与悬停等价的展开状态；Radar 与详情中上下键按 `Style.space(56)` 滚动。
 - Enter/激活键在 Overview 打开当前提供商，在详情触发刷新；Escape 关闭；Tab/Shift+Tab 交给宿主切换面板。
 - `R` 刷新，`O` 返回 Overview。鼠标支持分段点击、Provider Ledger 行悬停/点击、滚轮/拖动滚动、Retry 与 Refresh；再次点击托盘入口、点击面板外部或按 Escape 关闭弹层。

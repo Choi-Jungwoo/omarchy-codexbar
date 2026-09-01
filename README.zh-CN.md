@@ -60,6 +60,12 @@ omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable
 omarchy restart shell
 ```
 
+在 `~/.config/hypr/bindings.lua` 中加入默认全局快捷键：
+
+```lua
+o.bind("F12", "CodexBar", "omarchy-shell shell toggle community.codexbar")
+```
+
 ## 更新
 
 ```bash
@@ -71,6 +77,7 @@ omarchy restart shell
 
 ## 使用
 
+- `F12`：全局打开或关闭面板。
 - 点击托盘图标：打开或关闭面板。
 - 中键点击托盘图标：刷新当前数据。
 - `←` / `→` 或 `H` / `L`：切换标签。

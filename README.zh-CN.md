@@ -37,13 +37,17 @@
 
 ## 安装
 
+安装 CodexBar CLI 依赖：
+
+```bash
+yay -S --needed codexbar-cli
+```
+
 安装并启用插件：
 
 ```bash
 omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable --yes
 ```
-
-请先通过可信的软件包或 release 来源安装 CodexBar CLI，再启用插件。若面板显示 **CLI REQUIRED**，请安装 `/usr/bin/codexbar`，然后点击 **Retry**。
 
 ## 更新
 

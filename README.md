@@ -37,13 +37,17 @@ An open-source system tray plugin for Omarchy. It reads AI provider usage, remai
 
 ## Installation
 
+Install the CodexBar CLI dependency:
+
+```bash
+yay -S --needed codexbar-cli
+```
+
 Install and enable the plugin:
 
 ```bash
 omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable --yes
 ```
-
-Install CodexBar CLI through a trusted package or release source before enabling the plugin. If the panel reports **CLI REQUIRED**, install `/usr/bin/codexbar`, then click **Retry**.
 
 ## Updating
 

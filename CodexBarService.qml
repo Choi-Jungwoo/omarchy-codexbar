@@ -12,9 +12,10 @@ Item {
   readonly property int requestTimeoutSec: boundedSetting("requestTimeoutSec", 8, 2, 60)
   readonly property int refreshIntervalSec: boundedSetting("refreshIntervalSec", 60, 30, 3600)
   readonly property int serviceRefreshIntervalSec: boundedSetting("serviceRefreshIntervalSec", 300, 30, 3600)
+  readonly property int maxResponseBytes: 1048576
   readonly property string baseUrl: "http://" + host + ":" + port
 
-  // stopped -> starting -> ready; error always recovers through a health probe.
+  // stopped -> starting -> ready; error always recovers by restarting our authenticated service.
   property string status: "stopped"
   property string lastError: ""
   property string costError: ""
@@ -31,7 +32,7 @@ Item {
   property bool _refreshQueued: false
   property bool _usageFinished: true
   property bool _costFinished: true
-  property string _serveError: ""
+  property string _dashboardToken: ""
 
   function settingValue(name, fallback) {
     var value = settings ? settings[name] : undefined
@@ -44,26 +45,38 @@ Item {
     return Math.max(minimum, Math.min(maximum, Math.round(value)))
   }
 
-  function conciseError(value, fallback) {
-    var text = String(value || "").trim().replace(/\s+/g, " ")
-    if (text === "") text = fallback
-    return text.length > 180 ? text.slice(0, 177) + "…" : text
-  }
-
-  function curlCommand(path) {
-    return [
-      "curl", "--silent", "--show-error", "--fail",
+  function curlCommand(path, authenticated) {
+    var command = [
+      "/usr/bin/curl", "--disable", "--silent", "--fail",
+      "--noproxy", "*", "--proto", "=http",
       "--connect-timeout", String(requestTimeoutSec),
       "--max-time", String(requestTimeoutSec),
-      "--header", "Accept: application/json",
-      baseUrl + path
+      "--max-filesize", String(maxResponseBytes),
+      "--header", "Accept: application/json"
     ]
+    if (authenticated) command.push("--header", "Authorization: Bearer " + _dashboardToken)
+    command.push(baseUrl + path)
+    return command
+  }
+
+  function initialize(token) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(token)) {
+      status = "error"
+      lastError = "Could not create a private CodexBar session"
+      return
+    }
+    _dashboardToken = token
+    probe()
   }
 
   function probe() {
-    if (_shuttingDown || healthProcess.running) return
+    if (_shuttingDown || healthProcess.running || cliCheckProcess.running) return
     if (status === "stopped" || status === "error") status = "starting"
-    healthProcess.command = curlCommand("/health")
+    if (!ownsProcess || !serveProcess.running) {
+      cliCheckProcess.running = true
+      return
+    }
+    healthProcess.command = curlCommand("/dashboard/v1/snapshot", true)
     healthProcess.running = true
   }
 
@@ -71,10 +84,9 @@ Item {
     if (_shuttingDown || serveProcess.running) return
     status = "starting"
     lastError = ""
-    _serveError = ""
     ownsProcess = true
     serveProcess.command = [
-      "/usr/bin/env", "codexbar", "serve",
+      "/usr/bin/codexbar", "serve",
       "--host", host,
       "--port", String(port),
       "--refresh-interval", String(serviceRefreshIntervalSec),
@@ -83,23 +95,25 @@ Item {
       "--log-level", "error"
     ]
     serveProcess.running = true
-    readinessTimer.restart()
   }
 
-  function installCli() {
-    if (_shuttingDown || installProcess.running) return
-    installProcess.command = [
-      "/usr/bin/env", "omarchy-launch-floating-terminal-with-presentation",
-      "yay -S --needed codexbar-cli"
-    ]
-    installProcess.running = true
-  }
-
-  function acceptHealth(raw) {
+  function acceptIdentity(raw) {
     try {
-      var health = JSON.parse(String(raw || ""))
-      if (!health || health.status !== "ok") return false
-      serverVersion = String(health.version || "")
+      var snapshot = JSON.parse(String(raw || ""))
+      if (!snapshot || Array.isArray(snapshot) || typeof snapshot !== "object"
+          || snapshot.schemaVersion !== 1
+          || !snapshot.host || Array.isArray(snapshot.host) || typeof snapshot.host !== "object"
+          || typeof snapshot.host.codexBarVersion !== "string"
+          || snapshot.host.codexBarVersion.length < 1 || snapshot.host.codexBarVersion.length > 64
+          || !Array.isArray(snapshot.providers) || snapshot.providers.length > 128)
+        return false
+      for (var i = 0; i < snapshot.providers.length; i++) {
+        var provider = snapshot.providers[i]
+        if (!provider || Array.isArray(provider) || typeof provider !== "object"
+            || !Model.isProviderId(provider.id))
+          return false
+      }
+      serverVersion = snapshot.host.codexBarVersion
       lastError = ""
       cliMissing = false
       status = "ready"
@@ -111,20 +125,26 @@ Item {
     }
   }
 
-  function handleFailedProbe(message) {
+  function handleFailedProbe() {
     if (_shuttingDown) return
     if (ownsProcess && serveProcess.running) {
       status = "starting"
-      lastError = conciseError(message, "Waiting for CodexBar to become ready")
+      lastError = "Waiting for the authenticated CodexBar service"
       readinessTimer.restart()
       return
     }
-    startOwnedServer()
+    probe()
   }
 
   function refreshNow() {
     if (_shuttingDown) return
     if (status !== "ready") { probe(); return }
+    if (!ownsProcess || !serveProcess.running) {
+      status = "error"
+      lastError = "CodexBar service stopped unexpectedly"
+      reconnectTimer.restart()
+      return
+    }
     if (usageProcess.running || costProcess.running) {
       _refreshQueued = true
       return
@@ -152,8 +172,7 @@ Item {
   function parseUsage(raw) {
     try {
       var parsed = JSON.parse(String(raw || ""))
-      if (!Array.isArray(parsed) && !(parsed && (Array.isArray(parsed.providers) || Array.isArray(parsed.data) || parsed.provider)))
-        throw new Error("unexpected response shape")
+      Model.validateProviderRecords(parsed)
       usagePayload = parsed
       updateProviders()
       lastUpdatedAt = new Date().toISOString()
@@ -171,6 +190,7 @@ Item {
   function parseCost(raw) {
     try {
       var parsed = JSON.parse(String(raw || ""))
+      Model.validateProviderRecords(parsed)
       costPayload = parsed
       costError = ""
       updateProviders()
@@ -181,23 +201,26 @@ Item {
     }
   }
 
-  function recordServeError(line) {
-    var text = String(line || "").trim()
-    if (text !== "") _serveError = conciseError(text, "CodexBar failed to start")
-  }
-
-  Component.onCompleted: probe()
-
   Component.onDestruction: {
     _shuttingDown = true
     refreshTimer.stop()
     reconnectTimer.stop()
     readinessTimer.stop()
     healthProcess.running = false
+    cliCheckProcess.running = false
     usageProcess.running = false
     costProcess.running = false
-    installProcess.running = false
     if (ownsProcess && serveProcess.running) serveProcess.running = false
+  }
+
+  FileView {
+    path: "/proc/sys/kernel/random/uuid"
+    printErrors: false
+    onLoaded: root.initialize(String(text()).trim())
+    onLoadFailed: function() {
+      root.status = "error"
+      root.lastError = "Could not create a private CodexBar session"
+    }
   }
 
   Timer {
@@ -227,11 +250,25 @@ Item {
     running: false
     command: []
     stdout: StdioCollector { id: healthStdout; waitForEnd: true }
-    stderr: StdioCollector { id: healthStderr; waitForEnd: true }
     onExited: function(exitCode) {
       var output = String(healthStdout.text || "")
-      if (exitCode === 0 && root.acceptHealth(output)) return
-      root.handleFailedProbe(String(healthStderr.text || output || ""))
+      if (exitCode === 0 && root.acceptIdentity(output)) return
+      root.handleFailedProbe()
+    }
+  }
+
+  Process {
+    id: cliCheckProcess
+    running: false
+    command: ["/usr/bin/test", "-x", "/usr/bin/codexbar"]
+    onExited: function(exitCode) {
+      if (root._shuttingDown) return
+      root.cliMissing = exitCode !== 0
+      if (root.cliMissing) {
+        root.status = "error"
+        root.lastError = "CodexBar CLI is not installed at /usr/bin/codexbar"
+        reconnectTimer.restart()
+      } else root.startOwnedServer()
     }
   }
 
@@ -239,31 +276,17 @@ Item {
     id: serveProcess
     running: false
     command: []
-    stdout: SplitParser {
-      onRead: function(line) {
-        if (String(line || "").indexOf("listening on") >= 0) Qt.callLater(root.probe)
-      }
-    }
-    stderr: SplitParser { onRead: function(line) { root.recordServeError(line) } }
+    environment: ({ "CODEXBAR_DASHBOARD_TOKEN": root._dashboardToken })
+    onStarted: readinessTimer.restart()
     onExited: function(exitCode) {
       var expected = root._shuttingDown
       root.ownsProcess = false
       if (expected) return
       readinessTimer.stop()
-      root.cliMissing = exitCode === 127
-      root.lastError = root.conciseError(root._serveError, root.cliMissing
-        ? "codexbar is not installed or is not on PATH"
-        : "CodexBar service stopped unexpectedly")
+      root.lastError = "CodexBar service stopped unexpectedly"
       root.status = "error"
       reconnectTimer.restart()
     }
-  }
-
-  Process {
-    id: installProcess
-    running: false
-    command: []
-    onExited: root.probe()
   }
 
   Process {
@@ -271,13 +294,12 @@ Item {
     running: false
     command: []
     stdout: StdioCollector { id: usageStdout; waitForEnd: true }
-    stderr: StdioCollector { id: usageStderr; waitForEnd: true }
     onExited: function(exitCode) {
       root._usageFinished = true
       if (exitCode === 0) root.parseUsage(String(usageStdout.text || ""))
       else {
         root.status = "error"
-        root.lastError = root.conciseError(usageStderr.text, "Could not read CodexBar usage")
+        root.lastError = "Could not read CodexBar usage"
         reconnectTimer.restart()
       }
       root.finishRefreshPart()
@@ -289,11 +311,10 @@ Item {
     running: false
     command: []
     stdout: StdioCollector { id: costStdout; waitForEnd: true }
-    stderr: StdioCollector { id: costStderr; waitForEnd: true }
     onExited: function(exitCode) {
       root._costFinished = true
       if (exitCode === 0) root.parseCost(String(costStdout.text || ""))
-      else root.costError = root.conciseError(costStderr.text, "Cost data is temporarily unavailable")
+      else root.costError = "Cost data is temporarily unavailable"
       root.finishRefreshPart()
     }
   }

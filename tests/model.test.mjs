@@ -10,7 +10,7 @@ vm.runInContext(`${source}\nglobalThis.Model = {
   normalizeProviders, formatPercent, resetLabel, formatTokens, formatMoney, costSummary,
   last30DaysSummary, overviewProviders, dailyMaximum, expiryLabel, normalizeRadarInsights,
   viewTabs, hasCompleteRadarRecommendations, quotaHealth, resetCloseness,
-  resetCreditHealth, expiryHealth
+  resetCreditHealth, expiryHealth, validateProviderRecords
 }`, context)
 const { Model } = context
 
@@ -169,6 +169,18 @@ test("missing and malformed optional values stay readable", () => {
   assert.equal(Model.resetLabel(null, Date.now()), "Reset unavailable")
 })
 
+test("untrusted provider records must be bounded plain JSON with safe identifiers", () => {
+  assert.throws(() => Model.validateProviderRecords({ providers: [] }), /unexpected provider response shape/)
+  assert.throws(() => Model.validateProviderRecords([{ provider: "<b>codex</b>" }]), /unexpected provider response shape/)
+  assert.throws(() => Model.validateProviderRecords(Array.from({ length: 129 }, () => ({ provider: "codex" }))), /unexpected provider response shape/)
+
+  const providers = Model.normalizeProviders([{
+    provider: "codex",
+    usage: { primary: { title: { html: "<b>limit</b>" }, usedPercent: 25 } }
+  }], [])
+  assert.equal(providers[0].windows[0].title, "Primary limit")
+})
+
 test("quota and reset emphasis follow the live values", () => {
   assert.equal(Model.quotaHealth(10), 0)
   assert.equal(Model.quotaHealth(55), 0.5)
@@ -249,6 +261,9 @@ test("Codex Radar recommendations become a compact ordered ledger", () => {
 test("malformed Codex Radar payloads fail before replacing cached data", () => {
   assert.throws(() => Model.normalizeRadarInsights(null), /unexpected response shape/)
   assert.throws(() => Model.normalizeRadarInsights({ recommendations: "not-an-array" }), /unexpected response shape/)
+  assert.throws(() => Model.normalizeRadarInsights({
+    recommendations: [{ key: "daily_development", items: ["<b>not-an-object</b>"] }]
+  }), /unexpected response shape/)
 })
 
 test("Codex Radar efficiency metrics supplement every category to two picks", () => {

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "community.codexbar",
   "name": "CodexBar",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "Jungwoo",
   "license": "MIT",
   "description": "Provider usage, reset details, costs, and Codex Radar model recommendations in one tray panel.",
@@ -26,7 +26,7 @@
       "requestTimeoutSec": 8
     },
     "schema": [
-      { "key": "serverPort", "type": "integer", "label": "CodexBar server port", "min": 1, "max": 65535, "step": 1, "defaultValue": 49273, "description": "Uses an existing local codexbar serve instance on this port, or starts one when unavailable." },
+      { "key": "serverPort", "type": "integer", "label": "CodexBar server port", "min": 1, "max": 65535, "step": 1, "defaultValue": 49273, "description": "Starts the plugin-owned local codexbar serve instance on this port." },
       { "key": "refreshIntervalSec", "type": "integer", "label": "Panel refresh interval (seconds)", "min": 30, "max": 3600, "step": 30, "defaultValue": 60 },
       { "key": "radarRefreshIntervalSec", "type": "integer", "label": "Codex Radar refresh interval (seconds)", "min": 60, "max": 3600, "step": 60, "defaultValue": 300 },
       { "key": "serviceRefreshIntervalSec", "type": "integer", "label": "Provider refresh interval (seconds)", "min": 30, "max": 3600, "step": 30, "defaultValue": 300 },

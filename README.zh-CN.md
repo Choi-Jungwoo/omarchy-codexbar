@@ -27,12 +27,12 @@
 - Codex 行支持悬停展开账号、套餐、全部窗口、pace、reset credits、成本和最近日历史。
 - 顶部标签与底部更新操作固定，中间内容独立滚动；支持鼠标和键盘操作。
 - 明确处理服务启动、重连、失败、空数据与 Radar 缓存降级状态。
-- 缺少 `codexbar` CLI 时一键打开 Omarchy 终端，通过 `yay` 交互确认安装，完成后自动重连。
+- 缺少 `codexbar` CLI 时显示固定路径要求，并在用户自行安装后支持重试。
 
 ## 要求
 
 - 已安装支持插件系统的 [Omarchy](https://omarchy.org/)。
-- [CodexBar CLI](https://github.com/steipete/CodexBar)，可提前手动安装，也可在缺失时从面板安装。
+- [CodexBar CLI](https://github.com/steipete/CodexBar)，启用插件前需安装到 `/usr/bin/codexbar`。
 - 如需 Radar 推荐，需要能够访问 [Codex Radar](https://codexradar.com/)。用量面板本身只依赖本机 CodexBar 服务。
 
 ## 安装
@@ -43,7 +43,7 @@
 omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable --yes
 ```
 
-如果缺少 `codexbar`，打开面板并点击 **Install CLI**，然后在浮动终端中确认安装。CLI 可用后，面板会自动重连。
+请先通过可信的软件包或 release 来源安装 CodexBar CLI，再启用插件。若面板显示 **CLI REQUIRED**，请安装 `/usr/bin/codexbar`，然后点击 **Retry**。
 
 ## 更新
 
@@ -68,7 +68,7 @@ omarchy restart shell
 
 | 配置项 | 默认值 | 说明 |
 | --- | ---: | --- |
-| `serverPort` | `49273` | `codexbar serve` 本机端口（动态/私有端口段） |
+| `serverPort` | `49273` | 插件自有的回环 `codexbar serve` 端口；被占用时请选择其他端口 |
 | `refreshIntervalSec` | `60` | 面板刷新间隔 |
 | `radarRefreshIntervalSec` | `300` | Radar 推荐刷新间隔 |
 | `serviceRefreshIntervalSec` | `300` | 提供商数据刷新间隔 |
@@ -76,7 +76,8 @@ omarchy restart shell
 
 ## 数据来源与隐私
 
-- 用量、额度和成本来自本机 [CodexBar](https://github.com/steipete/CodexBar) 服务。插件优先复用已有服务；若服务不存在，则启动仅监听 `127.0.0.1` 且使用 `--identity redacted` 的实例。
+- 用量、额度和成本来自插件自有的本机 [CodexBar](https://github.com/steipete/CodexBar) 服务；该服务仅监听 `127.0.0.1` 并使用 `--identity redacted`。插件通过每次会话生成的 dashboard token 确认配置端口属于该进程，验证成功后才接受用量数据。
+- 本机与 Radar 的 HTTP 响应均限制为 1 MiB，并在进入界面前校验有界的 JSON 记录与字符串结构。
 - 模型推荐来自 [Codex Radar](https://codexradar.com/)。Radar 请求与本机 CodexBar 服务相互独立，失败时会保留最后一次完整缓存。
 - 插件不会复制提供商鉴权逻辑，也不会在日志中输出令牌、凭据或完整敏感响应。
 - Codex Radar 的数据、API 和二次使用受其自身条款或授权要求约束；请在分发或商业使用前自行确认许可。

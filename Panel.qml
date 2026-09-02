@@ -174,7 +174,7 @@ Panel {
         return "Codex Radar returned no current recommendations. Refresh to check again."
       return ""
     }
-    if (service.cliMissing) return "CodexBar CLI is missing. Install it in a terminal; this panel will reconnect automatically."
+    if (service.cliMissing) return "Install CodexBar CLI at /usr/bin/codexbar, then retry."
     if (service.status === "starting") return "Waiting for the local CodexBar service…"
     if (service.status === "error") return service.lastError || "CodexBar is unavailable. Retry when the service is ready."
     if (providers.length === 0) return "CodexBar returned no usable provider records yet. Use a provider, then refresh."
@@ -280,6 +280,7 @@ Panel {
       spacing: trayRemaining.visible ? Style.spacing.labelGap : 0
 
       Text {
+        textFormat: Text.PlainText
         text: "\ue905"
         color: button.active && button.useActiveColor ? button.activeColor : button.foreground
         font.family: "omarchy"
@@ -288,6 +289,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         id: trayRemaining
         visible: root.trayRemainingText !== "" && !button.vertical
         text: root.trayRemainingText
@@ -416,6 +418,7 @@ Panel {
               spacing: Style.space(3)
 
               Text {
+                textFormat: Text.PlainText
                 id: heroTitle
                 width: parent.width
                 text: root.selectedViewId === "overview"
@@ -431,6 +434,7 @@ Panel {
               }
 
               Text {
+                textFormat: Text.PlainText
                 id: heroMeta
                 width: parent.width
                 text: root.selectedViewId === "overview"
@@ -460,6 +464,7 @@ Panel {
               }
 
               Text {
+                textFormat: Text.PlainText
                 text: root.statusLabel()
                 color: root.statusColor()
                 font.family: root.fontFamily
@@ -479,6 +484,7 @@ Panel {
             radius: Style.cornerRadius
 
             Text {
+              textFormat: Text.PlainText
               id: statusMessage
               anchors.left: parent.left
               anchors.right: retryButton.visible ? retryButton.left : parent.right
@@ -498,19 +504,15 @@ Panel {
               anchors.right: parent.right
               anchors.rightMargin: Style.space(6)
               anchors.verticalCenter: parent.verticalCenter
-              text: !root.radarSelected && service.cliMissing ? "Install CLI" : "Retry"
+              text: "Retry"
               bordered: true
               foreground: root.foreground
               accent: root.accent
               fontFamily: root.fontFamily
               fontSize: Style.font.caption
               verticalPadding: Style.space(4)
-              tooltipText: !root.radarSelected && service.cliMissing
-                ? "Runs: yay -S --needed codexbar-cli"
-                : ""
               onClicked: {
                 if (root.radarSelected) radarService.refreshNow()
-                else if (service.cliMissing) service.installCli()
                 else service.probe()
               }
             }
@@ -551,6 +553,7 @@ Panel {
                   fontFamily: root.fontFamily
                 }
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   text: root.latestUpdatedLabel().replace(/^Updated\s*/, "")
                   color: root.foreground
@@ -575,6 +578,7 @@ Panel {
                   horizontalAlignment: Text.AlignRight
                 }
                 Text {
+                  textFormat: Text.PlainText
                   id: costValue
                   width: parent.width
                   text: root.radarSelected ? "Codex Radar" : root.footerCost
@@ -722,6 +726,7 @@ Panel {
     }
 
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: parent
       text: tabSegment.label
       color: tabSegment.selected ? root.accent : root.foreground
@@ -758,6 +763,7 @@ Panel {
       implicitHeight: Math.max(compactTitle.implicitHeight, compactReset.implicitHeight)
 
       Text {
+        textFormat: Text.PlainText
         id: compactTitle
         anchors.left: parent.left
         anchors.right: compactPercent.left
@@ -771,6 +777,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         id: compactPercent
         anchors.right: compactReset.left
         anchors.rightMargin: Style.space(10)
@@ -784,6 +791,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         id: compactReset
         anchors.right: parent.right
         text: compactLimit.window ? Model.resetLabel(compactLimit.window, root.nowMs).toUpperCase() : ""
@@ -805,6 +813,7 @@ Panel {
     }
 
     Text {
+      textFormat: Text.PlainText
       visible: compactLimit.showPace && text !== ""
       width: parent.width
       text: compactLimit.window ? compactLimit.window.paceSummary : ""
@@ -878,6 +887,7 @@ Panel {
       implicitHeight: Math.max(firstDay.implicitHeight, lastDay.implicitHeight)
 
       Text {
+        textFormat: Text.PlainText
         id: firstDay
         anchors.left: parent.left
         text: dailyChart.chartDays.length > 0 ? dailyChart.chartDays[0].label : ""
@@ -887,6 +897,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         id: lastDay
         anchors.right: parent.right
         text: dailyChart.chartDays.length > 0 ? dailyChart.chartDays[dailyChart.chartDays.length - 1].label : ""
@@ -932,6 +943,7 @@ Panel {
         implicitHeight: Math.max(providerName.implicitHeight, providerIdentity.implicitHeight)
 
         Text {
+          textFormat: Text.PlainText
           id: providerName
           anchors.left: parent.left
           anchors.right: providerIdentity.left
@@ -946,6 +958,7 @@ Panel {
         }
 
         Text {
+          textFormat: Text.PlainText
           id: providerIdentity
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
@@ -978,6 +991,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         visible: providerRow.provider && providerRow.provider.windows.length === 0
         width: parent.width
         text: "Rate-limit data is unavailable."
@@ -999,6 +1013,7 @@ Panel {
           implicitHeight: Math.max(creditLabel.implicitHeight, creditValue.implicitHeight)
 
           Text {
+            textFormat: Text.PlainText
             id: creditLabel
             anchors.left: parent.left
             anchors.top: parent.top
@@ -1016,6 +1031,7 @@ Panel {
             spacing: Style.space(2)
 
             Text {
+              textFormat: Text.PlainText
               id: creditCount
               width: parent.width
               text: providerRow.provider && providerRow.provider.resetCredits
@@ -1033,6 +1049,7 @@ Panel {
             }
 
             Text {
+              textFormat: Text.PlainText
               id: creditExpiry
               visible: providerRow.provider && providerRow.provider.resetCredits
                 && providerRow.provider.resetCredits.expiresAt !== ""
@@ -1070,6 +1087,7 @@ Panel {
               fontFamily: root.fontFamily
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: providerRow.provider && providerRow.provider.cost
                 ? Model.formatMoney(providerRow.provider.cost.summaryCostUSD)
@@ -1080,6 +1098,7 @@ Panel {
               font.bold: true
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: providerRow.provider && providerRow.provider.cost
                 ? Model.formatTokens(providerRow.provider.cost.summaryTokens) + " tokens"
@@ -1104,6 +1123,7 @@ Panel {
               horizontalAlignment: Text.AlignRight
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: providerRow.provider && providerRow.provider.cost
                 ? Model.formatMoney(providerRow.provider.cost.last30DaysCostUSD)
@@ -1115,6 +1135,7 @@ Panel {
               horizontalAlignment: Text.AlignRight
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: providerRow.provider && providerRow.provider.cost
                 ? Model.formatTokens(providerRow.provider.cost.last30DaysTokens) + " tokens"
@@ -1163,6 +1184,7 @@ Panel {
       implicitHeight: Math.max(limitTitle.implicitHeight, limitUsed.implicitHeight)
 
       Text {
+        textFormat: Text.PlainText
         id: limitTitle
         anchors.left: parent.left
         anchors.right: limitUsed.left
@@ -1174,6 +1196,7 @@ Panel {
         elide: Text.ElideRight
       }
       Text {
+        textFormat: Text.PlainText
         id: limitUsed
         anchors.right: parent.right
         text: limitRow.window ? Model.formatPercent(limitRow.window.remainingPercent) + " left" : ""
@@ -1198,6 +1221,7 @@ Panel {
       implicitHeight: Math.max(limitUsedValue.implicitHeight, limitResetValue.implicitHeight)
 
       Text {
+        textFormat: Text.PlainText
         id: limitUsedValue
         anchors.left: parent.left
         anchors.right: limitResetValue.left
@@ -1210,6 +1234,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         id: limitResetValue
         anchors.right: parent.right
         text: limitRow.window ? Model.resetLabel(limitRow.window, root.nowMs) : ""
@@ -1221,6 +1246,7 @@ Panel {
     }
 
     Text {
+      textFormat: Text.PlainText
       visible: text !== ""
       width: parent.width
       text: limitRow.window ? limitRow.window.paceSummary : ""
@@ -1239,6 +1265,7 @@ Panel {
       radarDuration.implicitHeight, radarCost.implicitHeight) + Style.space(14)
 
     Text {
+      textFormat: Text.PlainText
       id: radarModel
       anchors.left: parent.left
       anchors.right: radarIq.left
@@ -1253,6 +1280,7 @@ Panel {
     }
 
     Text {
+      textFormat: Text.PlainText
       id: radarIq
       width: Style.space(42)
       anchors.right: radarDuration.left
@@ -1268,6 +1296,7 @@ Panel {
     }
 
     Text {
+      textFormat: Text.PlainText
       id: radarDuration
       width: Style.space(60)
       anchors.right: radarCost.left
@@ -1283,6 +1312,7 @@ Panel {
     }
 
     Text {
+      textFormat: Text.PlainText
       id: radarCost
       width: Style.space(66)
       anchors.right: parent.right
@@ -1309,6 +1339,7 @@ Panel {
         + Style.space(10)
 
       Text {
+        textFormat: Text.PlainText
         id: radarGroupTitle
         anchors.left: parent.left
         anchors.right: radarRule.left
@@ -1334,6 +1365,7 @@ Panel {
         border.color: ruleMouse.containsMouse ? root.accent : root.alpha(root.foreground, 0.36)
 
         Text {
+          textFormat: Text.PlainText
           anchors.centerIn: parent
           text: "i"
           color: ruleMouse.containsMouse ? root.accent : root.dim
@@ -1361,6 +1393,7 @@ Panel {
       implicitHeight: radarColumnModel.implicitHeight + Style.space(9)
 
       Text {
+        textFormat: Text.PlainText
         id: radarColumnModel
         anchors.left: parent.left
         anchors.bottom: parent.bottom
@@ -1372,6 +1405,7 @@ Panel {
         font.bold: true
       }
       Text {
+        textFormat: Text.PlainText
         width: Style.space(42)
         anchors.right: radarColumnDuration.left
         anchors.bottom: parent.bottom
@@ -1384,6 +1418,7 @@ Panel {
         horizontalAlignment: Text.AlignRight
       }
       Text {
+        textFormat: Text.PlainText
         id: radarColumnDuration
         width: Style.space(60)
         anchors.right: radarColumnCost.left
@@ -1397,6 +1432,7 @@ Panel {
         horizontalAlignment: Text.AlignRight
       }
       Text {
+        textFormat: Text.PlainText
         id: radarColumnCost
         width: Style.space(66)
         anchors.right: parent.right
@@ -1447,6 +1483,7 @@ Panel {
     color: overviewPickMouse.containsMouse ? root.alpha(root.foreground, 0.07) : "transparent"
 
     Text {
+      textFormat: Text.PlainText
       id: overviewPickText
       anchors.left: parent.left
       anchors.right: parent.right
@@ -1481,6 +1518,7 @@ Panel {
       spacing: Style.space(10)
 
       Text {
+        textFormat: Text.PlainText
         visible: radarService.groups.length > 0
         width: parent.width
         text: "Data from Codex Radar · codexradar.com"
@@ -1514,6 +1552,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         visible: radarService.groups.length === 0
         width: parent.width
         topPadding: Style.space(28)
@@ -1545,6 +1584,7 @@ Panel {
         implicitHeight: Math.max(monthTotal.implicitHeight, monthCoverage.implicitHeight)
 
         Text {
+          textFormat: Text.PlainText
           id: monthTotal
           anchors.left: parent.left
           anchors.right: monthCoverage.left
@@ -1567,6 +1607,7 @@ Panel {
           spacing: Style.space(2)
 
           Text {
+            textFormat: Text.PlainText
             text: root.overviewSummary.costProviderCount + "/" + root.overviewSummary.providerCount + " PROVIDERS"
             color: root.foreground
             font.family: root.fontFamily
@@ -1575,6 +1616,7 @@ Panel {
             horizontalAlignment: Text.AlignRight
           }
           Text {
+            textFormat: Text.PlainText
             visible: root.overviewSummary.hasTokens
             text: Model.formatTokens(root.overviewSummary.tokens) + " TOKENS"
             color: root.dim
@@ -1609,6 +1651,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         visible: root.providers.length > 0 && !root.overviewSummary.hasCost && !root.overviewSummary.hasTokens
         width: parent.width
         text: "30-day cost data is unavailable for the active providers."
@@ -1655,6 +1698,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         visible: root.providers.length === 0 && service.status === "ready"
         width: parent.width
         topPadding: Style.space(22)
@@ -1697,6 +1741,7 @@ Panel {
         }
 
         Text {
+          textFormat: Text.PlainText
           id: mostUsedModelValue
           width: Math.min(parent.width * 0.58, implicitWidth)
           anchors.right: parent.right
@@ -1728,6 +1773,7 @@ Panel {
           implicitHeight: Math.max(detailAccount.implicitHeight, detailPlan.implicitHeight)
 
           Text {
+            textFormat: Text.PlainText
             id: detailAccount
             anchors.left: parent.left
             anchors.right: detailPlan.left
@@ -1742,6 +1788,7 @@ Panel {
           }
 
           Text {
+            textFormat: Text.PlainText
             id: detailPlan
             anchors.right: parent.right
             text: detail.provider ? detail.provider.planLabel : ""
@@ -1775,6 +1822,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         visible: detail.provider && detail.provider.windows.length === 0
         width: parent.width
         text: "This provider did not return a rate-limit window."
@@ -1806,6 +1854,7 @@ Panel {
           implicitHeight: Math.max(detailCreditCount.implicitHeight, detailCreditExpiry.implicitHeight)
 
           Text {
+            textFormat: Text.PlainText
             id: detailCreditCount
             anchors.left: parent.left
             text: detail.provider && detail.provider.resetCredits
@@ -1820,6 +1869,7 @@ Panel {
           }
 
           Text {
+            textFormat: Text.PlainText
             id: detailCreditExpiry
             anchors.left: detailCreditCount.right
             anchors.right: parent.right
@@ -1840,6 +1890,7 @@ Panel {
         }
 
         Text {
+          textFormat: Text.PlainText
           visible: detail.provider && !detail.provider.resetCredits
           width: parent.width
           text: "Reset-credit data is unavailable."
@@ -1866,6 +1917,7 @@ Panel {
           fontFamily: root.fontFamily
         }
         Text {
+          textFormat: Text.PlainText
           text: detail.provider && detail.provider.credits
             ? Model.formatMoney(detail.provider.credits.remaining) + " remaining"
             : ""
@@ -1895,6 +1947,7 @@ Panel {
           width: parent.width
           implicitHeight: Math.max(costLabel.implicitHeight, providerCost.implicitHeight)
           Text {
+            textFormat: Text.PlainText
             id: costLabel
             anchors.left: parent.left
             text: detail.provider && detail.provider.cost ? detail.provider.cost.summaryLabel : "Current"
@@ -1903,6 +1956,7 @@ Panel {
             font.pixelSize: Style.font.bodySmall
           }
           Text {
+            textFormat: Text.PlainText
             id: providerCost
             anchors.right: parent.right
             text: detail.provider && detail.provider.cost
@@ -1920,6 +1974,7 @@ Panel {
           width: parent.width
           implicitHeight: Math.max(monthLabel.implicitHeight, monthCost.implicitHeight)
           Text {
+            textFormat: Text.PlainText
             id: monthLabel
             anchors.left: parent.left
             text: "Last 30 days"
@@ -1928,6 +1983,7 @@ Panel {
             font.pixelSize: Style.font.caption
           }
           Text {
+            textFormat: Text.PlainText
             id: monthCost
             anchors.right: parent.right
             text: detail.provider && detail.provider.cost
@@ -1959,6 +2015,7 @@ Panel {
       }
 
       Text {
+        textFormat: Text.PlainText
         visible: service.costError !== ""
         width: parent.width
         text: service.costError

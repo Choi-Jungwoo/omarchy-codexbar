@@ -1,5 +1,8 @@
 # Local design and review artifacts
 .impeccable/
+/*.md
+!/README.md
+!/README.zh-CN.md
 
 # QML tooling caches
 .qmlcache/

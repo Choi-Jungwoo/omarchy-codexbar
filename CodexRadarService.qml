@@ -12,6 +12,7 @@ Item {
   readonly property string metricsEndpoint: "https://codexradar.com/api/intelligence-efficiency-metrics"
   readonly property int requestTimeoutSec: boundedSetting("requestTimeoutSec", 8, 2, 60)
   readonly property int refreshIntervalSec: boundedSetting("radarRefreshIntervalSec", 300, 60, 3600)
+  readonly property int maxResponseBytes: 1048576
 
   property string status: "idle"
   property string lastError: ""
@@ -38,23 +39,19 @@ Item {
     return Math.max(minimum, Math.min(maximum, Math.round(value)))
   }
 
-  function conciseError(value, fallback) {
-    var text = String(value || "").trim().replace(/\s+/g, " ")
-    if (text === "") text = fallback
-    return text.length > 180 ? text.slice(0, 177) + "…" : text
-  }
-
   function refreshIfStale() {
     if (lastRequestAtMs === 0 || Date.now() - lastRequestAtMs >= refreshIntervalSec * 1000) refreshNow()
   }
 
   function curlCommand(url) {
     return [
-      "curl", "--silent", "--show-error", "--fail",
+      "/usr/bin/curl", "--disable", "--silent", "--fail",
+      "--proto", "=https",
       "--connect-timeout", String(requestTimeoutSec),
       "--max-time", String(requestTimeoutSec),
+      "--max-filesize", String(maxResponseBytes),
       "--header", "Accept: application/json",
-      "--user-agent", "omarchy-codexbar/0.2",
+      "--user-agent", "omarchy-codexbar/0.2.1",
       url
     ]
   }
@@ -102,7 +99,7 @@ Item {
     lastRequestAtMs = Date.now()
     if (_requestError !== "") {
       status = "error"
-      lastError = conciseError(_requestError, "Could not reach Codex Radar")
+      lastError = _requestError
       return
     }
     parseResponse(_recommendationsRaw, _metricsRaw)
@@ -130,12 +127,11 @@ Item {
     running: false
     command: []
     stdout: StdioCollector { id: requestStdout; waitForEnd: true }
-    stderr: StdioCollector { id: requestStderr; waitForEnd: true }
     onExited: function(exitCode) {
       root._recommendationsFinished = true
       if (root._shuttingDown) return
       if (exitCode === 0) root._recommendationsRaw = String(requestStdout.text || "")
-      else root._requestError = String(requestStderr.text || "")
+      else root._requestError = "Could not load Codex Radar recommendations"
       root.finishRefresh()
     }
   }
@@ -145,14 +141,11 @@ Item {
     running: false
     command: []
     stdout: StdioCollector { id: metricsStdout; waitForEnd: true }
-    stderr: StdioCollector { id: metricsStderr; waitForEnd: true }
     onExited: function(exitCode) {
       root._metricsFinished = true
       if (root._shuttingDown) return
       if (exitCode === 0) root._metricsRaw = String(metricsStdout.text || "")
-      else root._requestError = root.conciseError(
-        String(metricsStderr.text || ""),
-        "Could not load Codex Radar efficiency metrics")
+      else root._requestError = "Could not load Codex Radar efficiency metrics"
       root.finishRefresh()
     }
   }

@@ -1,14 +1,23 @@
-function asArray(value) {
-  if (Array.isArray(value)) return value
-  if (value && Array.isArray(value.providers)) return value.providers
-  if (value && Array.isArray(value.data)) return value.data
-  return value && value.provider ? [value] : []
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+}
+
+function isProviderId(value) {
+  return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value)
+}
+
+function validateProviderRecords(value) {
+  if (!Array.isArray(value) || value.length > 128) throw new Error("unexpected provider response shape")
+  for (var i = 0; i < value.length; i++) {
+    var record = value[i]
+    if (!isPlainObject(record) || !isProviderId(record.provider))
+      throw new Error("unexpected provider response shape")
+  }
+  return value
 }
 
 function numberOrNull(value) {
-  if (value === null || value === undefined || value === "") return null
-  var number = Number(value)
-  return isFinite(number) ? number : null
+  return typeof value === "number" && isFinite(value) ? value : null
 }
 
 function clampPercent(value) {
@@ -18,7 +27,7 @@ function clampPercent(value) {
 }
 
 function nonEmpty(value) {
-  return value === null || value === undefined ? "" : String(value).trim()
+  return typeof value === "string" ? value.trim().slice(0, 256) : ""
 }
 
 function providerName(providerId) {
@@ -67,7 +76,7 @@ function paceForWindow(record, key, raw) {
 }
 
 function normalizedWindow(record, key, raw, order) {
-  if (!raw || typeof raw !== "object") return null
+  if (!isPlainObject(raw)) return null
   var usedPercent = clampPercent(raw.usedPercent)
   if (usedPercent === null) return null
   var pace = paceForWindow(record, key, raw)
@@ -91,7 +100,7 @@ function normalizedWindow(record, key, raw, order) {
 }
 
 function usageWindows(record) {
-  var usage = record && record.usage ? record.usage : {}
+  var usage = record && isPlainObject(record.usage) ? record.usage : {}
   var windows = []
   var keys = ["primary", "secondary", "tertiary"]
   var order = 0
@@ -101,8 +110,8 @@ function usageWindows(record) {
   }
 
   var extra = Array.isArray(usage.extraRateWindows) ? usage.extraRateWindows : []
-  for (var j = 0; j < extra.length; j++) {
-    var entry = extra[j] || {}
+  for (var j = 0; j < extra.length && j < 16; j++) {
+    var entry = isPlainObject(extra[j]) ? extra[j] : {}
     var extraRow = normalizedWindow(record, "extra-" + j, entry.window || entry, order++)
     if (extraRow) {
       var title = nonEmpty(entry.title)
@@ -129,8 +138,8 @@ function localDateKey(date) {
 function normalizedDailyCosts(costRecord) {
   var days = costRecord && Array.isArray(costRecord.daily) ? costRecord.daily : []
   var result = []
-  for (var i = 0; i < days.length; i++) {
-    var row = days[i] || {}
+  for (var i = Math.max(0, days.length - 62); i < days.length; i++) {
+    var row = isPlainObject(days[i]) ? days[i] : {}
     var date = nonEmpty(row.date || row.day)
     if (date === "") continue
     var costUSD = numberOrNull(row.costUSD !== undefined
@@ -169,9 +178,9 @@ function mostUsedModel(costRecord) {
   var totals = {}
   var bestName = ""
   var bestTokens = -1
-  for (var i = 0; i < days.length; i++) {
+  for (var i = Math.max(0, days.length - 62); i < days.length; i++) {
     var models = Array.isArray(days[i] && days[i].modelBreakdowns) ? days[i].modelBreakdowns : []
-    for (var j = 0; j < models.length; j++) {
+    for (var j = 0; j < models.length && j < 128; j++) {
       var name = nonEmpty(models[j] && models[j].modelName)
       var tokens = numberOrNull(models[j] && models[j].totalTokens)
       if (name === "" || tokens === null || tokens <= 0) continue
@@ -211,7 +220,7 @@ function normalizedCost(record) {
 
 function costIndex(payload) {
   var result = {}
-  var records = asArray(payload)
+  var records = validateProviderRecords(payload)
   for (var i = 0; i < records.length; i++) {
     var id = nonEmpty(records[i] && records[i].provider).toLowerCase()
     if (id !== "" && !records[i].error) result[id] = normalizedCost(records[i])
@@ -244,8 +253,8 @@ function maskedAccountLabel(value) {
 }
 
 function identityFor(record) {
-  var usage = record && record.usage ? record.usage : {}
-  var identity = usage.identity && typeof usage.identity === "object" ? usage.identity : {}
+  var usage = record && isPlainObject(record.usage) ? record.usage : {}
+  var identity = isPlainObject(usage.identity) ? usage.identity : {}
   var accountLabel = maskedAccountLabel(usage.accountEmail || identity.accountEmail || record.account)
   var plan = nonEmpty(usage.loginMethod || identity.loginMethod)
   return {
@@ -255,16 +264,16 @@ function identityFor(record) {
 }
 
 function resetCreditsFor(record) {
-  var usage = record && record.usage ? record.usage : {}
+  var usage = record && isPlainObject(record.usage) ? record.usage : {}
   var credits = usage.codexResetCredits
-  if (!credits || typeof credits !== "object") return null
+  if (!isPlainObject(credits)) return null
   var availableCount = numberOrNull(credits.availableCount)
   if (availableCount === null && Array.isArray(credits.credits)) availableCount = credits.credits.length
   if (availableCount === null) return null
   var expiresAt = ""
   var entries = Array.isArray(credits.credits) ? credits.credits : []
-  for (var i = 0; i < entries.length; i++) {
-    var entry = entries[i] || {}
+  for (var i = 0; i < entries.length && i < 64; i++) {
+    var entry = isPlainObject(entries[i]) ? entries[i] : {}
     var status = nonEmpty(entry.status).toLowerCase()
     if (status !== "" && status !== "available") continue
     var candidate = nonEmpty(entry.expires_at || entry.expiresAt)
@@ -278,7 +287,7 @@ function resetCreditsFor(record) {
 }
 
 function normalizeProviders(usagePayload, costPayload) {
-  var records = asArray(usagePayload)
+  var records = validateProviderRecords(usagePayload)
   var costs = costIndex(costPayload)
   var providers = []
   var seen = {}
@@ -290,7 +299,7 @@ function normalizeProviders(usagePayload, costPayload) {
     seen[providerId] = true
 
     var windows = usageWindows(record)
-    var usage = record.usage || {}
+    var usage = isPlainObject(record.usage) ? record.usage : {}
     var identity = identityFor(record)
     providers.push({
       providerId: providerId,
@@ -566,6 +575,40 @@ function radarIdentity(item) {
   return nonEmpty(item && item.model).toLowerCase() + "|" + nonEmpty(item && item.effort).toLowerCase()
 }
 
+function boundedObjectArray(value, maximum) {
+  if (!Array.isArray(value) || value.length > maximum) return false
+  for (var i = 0; i < value.length; i++) if (!isPlainObject(value[i])) return false
+  return true
+}
+
+function validateRadarPayload(body, metricsPayload) {
+  if (!isPlainObject(body)) throw new Error("unexpected response shape")
+  var groups = body.recommendations !== undefined
+    ? body.recommendations
+    : (body.station_recommendations !== undefined ? body.station_recommendations : body.station_recs)
+  if (!boundedObjectArray(groups, 16)) throw new Error("unexpected response shape")
+  for (var i = 0; i < groups.length; i++) {
+    var group = groups[i]
+    var key = group.key !== undefined ? group.key : group.id
+    var items = Array.isArray(group.items)
+      ? group.items
+      : (Array.isArray(group.models) ? group.models : group.recommendations)
+    if (typeof key !== "string" || !/^[a-z0-9_-]{1,64}$/i.test(key)
+        || !boundedObjectArray(items, 16))
+      throw new Error("unexpected response shape")
+  }
+  if (body.comprehensive_points !== undefined && !boundedObjectArray(body.comprehensive_points, 128))
+    throw new Error("unexpected response shape")
+
+  var metricsBody = isPlainObject(metricsPayload) && isPlainObject(metricsPayload.data)
+    ? metricsPayload.data
+    : metricsPayload
+  if (metricsBody !== null && metricsBody !== undefined
+      && (!isPlainObject(metricsBody)
+        || (metricsBody.points !== undefined && !boundedObjectArray(metricsBody.points, 128))))
+    throw new Error("unexpected response shape")
+}
+
 function radarEligible(item) {
   var model = nonEmpty(item && item.model).toLowerCase()
   return model === "gpt-5.5" || model === "gpt-5.6-sol"
@@ -594,7 +637,7 @@ function supplementRadarRecommendations(body, metricsPayload) {
   var rawGroups = body.recommendations !== undefined
     ? body.recommendations
     : (body.station_recommendations !== undefined ? body.station_recommendations : body.station_recs)
-  if (!Array.isArray(rawGroups)) throw new Error("unexpected response shape")
+  validateRadarPayload(body, metricsPayload)
 
   var comprehensive = Array.isArray(body.comprehensive_points) ? body.comprehensive_points : []
   var canonicalIq = {}
@@ -604,7 +647,7 @@ function supplementRadarRecommendations(body, metricsPayload) {
     canonicalIq[radarIdentity(point)] = numberOrNull(point.iq)
   }
 
-  var metricsBody = metricsPayload && metricsPayload.data && typeof metricsPayload.data === "object"
+  var metricsBody = isPlainObject(metricsPayload) && isPlainObject(metricsPayload.data)
     ? metricsPayload.data
     : metricsPayload
   var metricRows = metricsBody && Array.isArray(metricsBody.points) ? metricsBody.points : []
@@ -650,7 +693,7 @@ function supplementRadarRecommendations(body, metricsPayload) {
 
   var supplemented = []
   for (var groupIndex = 0; groupIndex < rawGroups.length; groupIndex++) {
-    var group = rawGroups[groupIndex] || {}
+    var group = rawGroups[groupIndex]
     var groupKey = nonEmpty(group.key || group.id).toLowerCase()
     var sourceItems = Array.isArray(group.items)
       ? group.items
@@ -659,7 +702,7 @@ function supplementRadarRecommendations(body, metricsPayload) {
     var items = []
     var seen = {}
     for (var itemIndex = 0; itemIndex < sourceItems.length && items.length < 2; itemIndex++) {
-      var sourceItem = sourceItems[itemIndex] || {}
+      var sourceItem = sourceItems[itemIndex]
       if (!radarEligible(sourceItem)) continue
       var sourceKey = radarIdentity(sourceItem)
       if (seen[sourceKey]) continue
@@ -685,8 +728,8 @@ function supplementRadarRecommendations(body, metricsPayload) {
 }
 
 function normalizeRadarInsights(payload, metricsPayload) {
-  if (!payload || typeof payload !== "object") throw new Error("unexpected response shape")
-  var body = payload.data && typeof payload.data === "object" ? payload.data : payload
+  if (!isPlainObject(payload)) throw new Error("unexpected response shape")
+  var body = isPlainObject(payload.data) ? payload.data : payload
   var rawGroups = supplementRadarRecommendations(body, metricsPayload)
 
   var preferredOrder = {
@@ -705,7 +748,7 @@ function normalizeRadarInsights(payload, metricsPayload) {
   for (var i = 0; i < rawGroups.length; i++) {
     var group = rawGroups[i] || {}
     var key = nonEmpty(group.key || group.id).toLowerCase()
-    if (key === "") continue
+    if (preferredOrder[key] === undefined) continue
     var rawItems = Array.isArray(group.items)
       ? group.items
       : (Array.isArray(group.models) ? group.models : group.recommendations)

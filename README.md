@@ -27,12 +27,12 @@ An open-source system tray plugin for Omarchy. It reads AI provider usage, remai
 - Expands the Codex row on hover to show the masked account, plan, quota windows, pace, reset credits, cost, and recent daily history.
 - Keeps the tab rail and update controls fixed while the middle content scrolls; supports both mouse and keyboard input.
 - Handles service startup, reconnection, errors, empty states, and Radar cache fallback explicitly.
-- When the `codexbar` CLI is missing, opens an Omarchy terminal for an interactive `yay` installation and reconnects automatically afterward.
+- When the `codexbar` CLI is missing, reports the required fixed path and retries after the user installs it.
 
 ## Requirements
 
 - [Omarchy](https://omarchy.org/) with plugin support.
-- [CodexBar CLI](https://github.com/steipete/CodexBar), installed manually or from the panel when missing.
+- [CodexBar CLI](https://github.com/steipete/CodexBar), installed at `/usr/bin/codexbar` before enabling the plugin.
 - Network access to [Codex Radar](https://codexradar.com/) for model recommendations. The usage panel itself only requires the local CodexBar service.
 
 ## Installation
@@ -43,7 +43,7 @@ Install and enable the plugin:
 omarchy plugin add https://github.com/Choi-Jungwoo/omarchy-codexbar.git --enable --yes
 ```
 
-If `codexbar` is missing, open the panel and click **Install CLI**, then confirm the installation in the floating terminal. The panel reconnects automatically when the CLI becomes available.
+Install CodexBar CLI through a trusted package or release source before enabling the plugin. If the panel reports **CLI REQUIRED**, install `/usr/bin/codexbar`, then click **Retry**.
 
 ## Updating
 
@@ -68,7 +68,7 @@ Plugin settings are declared in `manifest.json` and can be adjusted through Omar
 
 | Setting | Default | Description |
 | --- | ---: | --- |
-| `serverPort` | `49273` | Local `codexbar serve` port in the dynamic/private range |
+| `serverPort` | `49273` | Port for the plugin-owned loopback `codexbar serve` instance; choose another if occupied |
 | `refreshIntervalSec` | `60` | Panel refresh interval |
 | `radarRefreshIntervalSec` | `300` | Radar recommendation refresh interval |
 | `serviceRefreshIntervalSec` | `300` | Provider data refresh interval |
@@ -76,7 +76,8 @@ Plugin settings are declared in `manifest.json` and can be adjusted through Omar
 
 ## Data Sources and Privacy
 
-- Usage, quota, and cost data come from the local [CodexBar](https://github.com/steipete/CodexBar) service. The plugin reuses a healthy existing service or starts an instance bound only to `127.0.0.1` with `--identity redacted`.
+- Usage, quota, and cost data come from a plugin-owned [CodexBar](https://github.com/steipete/CodexBar) service bound only to `127.0.0.1` with `--identity redacted`. A per-session dashboard token verifies that the configured port belongs to that process before usage data is accepted.
+- Local and Radar HTTP responses are capped at 1 MiB and checked for bounded JSON record/string shapes before reaching the UI.
 - Model recommendations come from [Codex Radar](https://codexradar.com/). Radar requests are independent from the local CodexBar service and retain the last complete cache on failure.
 - The plugin does not duplicate provider authentication logic and does not log tokens, credentials, or complete sensitive payloads.
 - Codex Radar data, APIs, and secondary use remain subject to its own terms or authorization requirements. Confirm permission before redistribution or commercial use.
